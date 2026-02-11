@@ -1,149 +1,284 @@
-# connect-giftcard-integration-template
-This repository provides a [connect](https://docs.commercetools.com/connect) template for giftcard integration connector. This boilerplate code acts as a starting point for integration with external giftcard service provider.
+# Harry Rosen Gift Card Connector
 
-## Template Features
-- Typescript language supported.
-- Uses Fastify as web server framework.
-- Uses [commercetools SDK](https://docs.commercetools.com/sdk/js-sdk-getting-started) for the commercetools-specific communication.
-- Uses [connect payment SDK](https://github.com/commercetools/connect-payments-sdk) to manage request context, sessions and JWT authentication.
-- Includes local development utilities in npm commands to build, start, test, lint & prettify code.
+commercetools Connect connector for integrating Harry Rosen gift cards with commercetools Checkout.
 
-## Prerequisite
+## Overview
 
-#### 1. commercetools composable commerce API client
+This connector enables Harry Rosen gift cards as a payment method in commercetools Checkout, implementing a two-step payment flow (authorize on apply, capture on order creation) to prevent charging customers for abandoned carts.
 
-Users are expected to create API client responsible for payment management in composable commerce project. Details of the API client are taken as input as environment variables/ configuration for connect such as `CTP_PROJECT_KEY` , `CTP_CLIENT_ID`, `CTP_CLIENT_SECRET`. For details, please read [Deployment Configuration](./README.md#deployment-configuration).
-In addition, please make sure the API client should have enough scope to be able to manage payment. For details, please refer to [Running Application](./processor/README.md#running-application)
+### Features
 
-#### 2. various URLs from commercetools composable commerce
+- ✅ Gift card balance checking
+- ✅ Partial and full redemptions
+- ✅ Multiple gift cards per order
+- ✅ Refunds back to gift cards
+- ✅ Two-step payment flow (authorize → capture)
+- ✅ Session-based security
+- ✅ Responsive UI with validation
+- ✅ Support for Harry Rosen's dual-server architecture
 
-Various URLs from commercetools platform are required to be configured so that the connect application can handle session and authentication process for endpoints.
-Their values are taken as input as environment variables/ configuration for connect with variable names `CTP_API_URL`, `CTP_AUTH_URL` and `CTP_SESSION_URL`.
+## Architecture
 
-## Getting started
+### Two-Module Structure
 
-The template contains two modules :
+**Enabler** (`/enabler`) - Frontend JavaScript library
+- Displays gift card input form during checkout
+- Handles client-side validation
+- Communicates with processor via session authentication
+- Built with Vite and TypeScript
 
-- Enabler: Acts as a wrapper implementation in which frontend components from PSPs embedded. It gives control to checkout product on when and how to load the connector frontend based on business configuration. In cases connector is used directly and not through Checkout product, the connector library can be loaded directly on frontend than the PSP one.
-- Processor : Acts as backend services which is middleware to 3rd party PSPs to be responsible for managing transactions with PSPs and updating payment entity in composable commerce. `connect-payment-sdk` will be offered to be used in connector to manage request context, sessions and other tools necessary to transact.
-Regarding the development of processor module, please refer to the following documentations:
+**Processor** (`/processor`) - Backend Fastify service
+- Middleware between commercetools and Harry Rosen API
+- Handles balance checks, redemptions, refunds
+- Manages payment lifecycle
+- Built with Fastify and TypeScript
 
-- [Development of Processor](./processor/README.md)
+## Quick Start
 
-#### 1. Develop your specific needs
+### Prerequisites
 
-To proceed payment operations via external PSPs, users need to extend this connector with the following task
+1. **commercetools Account**
+   - Project with Checkout enabled
+   - API client with payment connector scopes
+   - Payment custom type with `giftCardCode` and `giftCardPin` fields
 
-- API communication: Implementation to communicate between this connector application and the external system using libraries provided by PSPs. Please remember that the payment requests might not be sent to PSPs successfully in a single attempt. It should have needed retry and recovery mechanism.
+2. **Harry Rosen API Credentials**
+   - Balance server URL: `https://ckinttest.harryrosen.com:5010`
+   - Transaction server URL: `https://crmapptest.harryrosen.com:8000`
+   - Username and password
 
-#### 2. Register as connector in commercetools Connect
+3. **Development Environment**
+   - Node.js 18+
+   - npm or yarn
 
-Follow guidelines [here](https://docs.commercetools.com/connect/getting-started) to register the connector for public/private use.
-
-## Deployment Configuration
-
-In order to deploy your customized connector application on commercetools Connect, it needs to be published. For details, please refer to [documentation about commercetools Connect](https://docs.commercetools.com/connect/concepts)
-In addition, in order to support connect, the tax integration connector template has a folder structure as listed below
-
-```
-├── enabler
-│   ├── src
-│   ├── test
-│   └── package.json
-├── processor
-│   ├── src
-│   ├── test
-│   └── package.json
-└── connect.yaml
-```
-
-Connect deployment configuration is specified in `connect.yaml` which is required information needed for publishing of the application. Following is the deployment configuration used by Enabler and Processor modules
-
-```
-deployAs:
-  - name: enabler
-    applicationType: assets
-  - name: processor
-    applicationType: service
-    endpoint: /
-    configuration:
-      standardConfiguration:
-        - key: CTP_PROJECT_KEY
-          description: commercetools project key
-          required: true
-        - key: CTP_CLIENT_ID
-          description: commercetools client ID with manage_payments, manage_orders, view_sessions, view_api_clients, manage_checkout_payment_intents & introspect_oauth_tokens scopes
-          required: true
-        - key: CTP_AUTH_URL
-          description: commercetools Auth URL
-          required: true
-          default: https://auth.us-central1.gcp.commercetools.com
-        - key: CTP_API_URL
-          description: commercetools API URL
-          required: true
-          default: https://api.us-central1.gcp.commercetools.com
-        - key: CTP_SESSION_URL
-          description: Session API URL
-          required: true
-          default: https://session.us-central1.gcp.commercetools.com
-        - key: CTP_JWKS_URL
-          description: JWKs url (example - https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json)
-          required: true
-          default: https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json
-        - key: CTP_JWT_ISSUER
-          description: JWT Issuer for jwt validation (example - https://mc-api.us-central1.gcp.commercetools.com)
-          required: true
-          default: https://mc-api.us-central1.gcp.commercetools.com
-      securedConfiguration:
-        - key: CTP_CLIENT_SECRET
-          description: commercetools client secret
-          required: true
-```
-
-Here you can see the details about various variables in configuration
-
-- `CTP_PROJECT_KEY`: The key of commercetools composable commerce project.
-- `CTP_CLIENT_ID`: The client ID of your commercetools composable commerce user account. It is used in commercetools client to communicate with commercetools composable commerce via SDK. Expected scopes are: `manage_payments` `manage_orders` `view_sessions` `view_api_clients` `manage_checkout_payment_intents` `introspect_oauth_tokens`.
-- `CTP_CLIENT_SECRET`: The client secret of commercetools composable commerce user account. It is used in commercetools client to communicate with commercetools composable commerce via SDK.
-
-**Note:** This connector requires an existing payment custom type with `giftCardCode` and `giftCardPin` fields.
-
-- `CTP_AUTH_URL`: The URL for authentication in commercetools platform. It is used to generate OAuth 2.0 token which is required in every API call to commercetools composable commerce. The default value is `https://auth.us-central1.gcp.commercetools.com`. For details, please refer to documentation [here](https://docs.commercetools.com/tutorials/api-tutorial#authentication).
-- `CTP_API_URL`: The URL for commercetools composable commerce API. Default value is `https://api.us-central1.gcp.commercetools.com`.
-- `CTP_SESSION_URL`: The URL for session creation in commercetools platform. Connectors relies on the session created to be able to share information between enabler and processor. The default value is `https://session.us-central1.gcp.commercetools.com`.
-- `CTP_JWKS_URL`: The URL which provides JSON Web Key Set. Default value is `https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json`
-- `CTP_JWT_ISSUER`: The issuer inside JSON Web Token which is required in JWT validation process. Default value is `https://mc-api.us-central1.gcp.commercetools.com`
-- `MOCK_CONNECTOR_CURRENCY`: The currency code assigned to the deployment of this connector template. Remind that each deployment supports single currency.
-
-## Development
-
-In order to get started developing this connector certain configuration are necessary, most of which involve updating environment variables in both services (enabler, processor).
-
-#### Configuration steps
-
-#### 1. Environment Variable Setup
-
-Navigate to each service directory and duplicate the .env.template file, renaming the copy to .env. Populate the newly created .env file with the appropriate values.
+### Installation
 
 ```bash
-cp .env.template .env
+# Clone repository
+git clone https://github.com/gluo/hr-giftcard-integration-ct.git
+cd hr-giftcard-integration-ct
+
+# Install processor dependencies
+cd processor
+npm install
+
+# Install enabler dependencies
+cd ../enabler
+npm install
 ```
 
-#### 2. Spin Up Components via Docker Compose
+### Configuration
 
-With the help of docker compose, you are able to spin up all necessary components required for developing the connector by running the following command from the root directory;
+#### 1. Processor Environment Variables
+
+Create `processor/.env`:
 
 ```bash
+# commercetools Configuration
+CTP_PROJECT_KEY=your-project-key
+CTP_CLIENT_ID=your-client-id
+CTP_CLIENT_SECRET=your-client-secret
+CTP_AUTH_URL=https://auth.us-central1.gcp.commercetools.com
+CTP_API_URL=https://api.us-central1.gcp.commercetools.com
+CTP_SESSION_URL=https://session.us-central1.gcp.commercetools.com
+CTP_JWKS_URL=https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json
+CTP_JWT_ISSUER=https://mc-api.us-central1.gcp.commercetools.com
+
+# Harry Rosen API
+HARRYROSEN_BALANCE_URL=https://ckinttest.harryrosen.com:5010
+HARRYROSEN_TRANSACTION_URL=https://crmapptest.harryrosen.com:8000
+HARRYROSEN_USER=your-username
+HARRYROSEN_PASSWORD=your-password
+
+# Connector Settings
+MOCK_CONNECTOR_CURRENCY=CAD
+LOGGER_LEVEL=info
+```
+
+#### 2. Enabler Environment Variables
+
+Create `enabler/.env`:
+
+```bash
+VITE_PROCESSOR_URL=http://localhost:8081
+```
+
+### Running Locally
+
+#### Option A: With Docker Compose (Recommended)
+
+```bash
+# Start all services (JWT server, enabler, processor)
 docker compose up
 ```
 
-This command would start 3 required services, necessary for development
+#### Option B: Manual
 
-1. JWT Server
-2. Enabler
-3. Processor
+```bash
+# Terminal 1: Start JWT mock server
+npx --package jwt-mock-server -y start
 
-## Other resources
+# Terminal 2: Start processor
+cd processor
+npm run dev
 
-* [Developers documentation](/docs/TECH_DOCUMENTATION.md)
-* [Mock values](/docs/MOCKS.md)
+# Terminal 3: Start enabler
+cd enabler
+npm run dev
+```
+
+### Test the Integration
+
+```bash
+# Check health
+curl http://localhost:8081/operations/status
+
+# Test balance check
+curl -X POST http://localhost:8081/balance \
+  -H "Content-Type: application/json" \
+  -H "X-Session-Id: your-session-id" \
+  -d '{"code":"1234567890123456","securityCode":"1234"}'
+```
+
+## Deployment
+
+### Deploy to commercetools Connect
+
+```bash
+cd processor
+npm run build
+npm run connector:post-deploy
+```
+
+The connector will be deployed as an **Organization Connector** (private to your commercetools organization).
+
+### Post-Deployment Setup
+
+1. Go to Merchant Center → Settings → Connectors
+2. Find "Harry Rosen Gift Card Connector"
+3. Install to your project
+4. Configure environment variables (Harry Rosen credentials)
+5. Set up payment integration in Checkout settings
+
+## API Endpoints
+
+### Processor
+
+- `GET /operations/status` - Health check (JWT auth)
+- `POST /balance` - Check gift card balance (Session auth)
+- `POST /redeem` - Apply gift card to cart (Session auth)
+- `POST /operations/payment-intents/{paymentId}` - Payment modifications (OAuth2 auth)
+
+### Enabler
+
+- Exposes `createGiftCardBuilder()` interface
+- Returns `GiftCardComponent` with `mount()`, `balance()`, and `submit()` methods
+
+## Required commercetools Configuration
+
+### API Client Scopes
+
+Your commercetools API client must have these scopes:
+- `manage_payments`
+- `manage_orders`
+- `view_sessions`
+- `view_api_clients`
+- `manage_checkout_payment_intents`
+- `introspect_oauth_tokens`
+
+**Tip:** Use the "Payment connector for checkout" template in Merchant Center.
+
+### Payment Custom Type
+
+Your project must have a payment custom type with these fields:
+- **giftCardCode** (String) - Stores card number during authorization
+- **giftCardPin** (String) - Stores PIN during authorization
+
+These fields are essential for the two-step payment flow.
+
+## Development
+
+### Build
+
+```bash
+# Build processor
+cd processor
+npm run build
+
+# Build enabler
+cd enabler
+npm run build
+```
+
+### Test
+
+```bash
+# Run processor tests
+cd processor
+npm run test
+npm run test:coverage
+
+# Run enabler tests
+cd enabler
+npm run test
+```
+
+### Code Quality
+
+```bash
+# Lint
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+```
+
+## Project Structure
+
+```
+├── enabler/                    # Frontend module
+│   ├── src/
+│   │   ├── components/         # UI components
+│   │   ├── i18n/              # Translations
+│   │   ├── providers/         # Provider interface
+│   │   └── style/             # SCSS styles
+│   └── public/                # Built assets
+├── processor/                  # Backend module
+│   ├── src/
+│   │   ├── clients/           # Harry Rosen API client
+│   │   ├── services/          # Business logic
+│   │   ├── routes/            # API endpoints
+│   │   ├── dtos/              # Request/response types
+│   │   ├── errors/            # Error handling
+│   │   └── connectors/        # Lifecycle hooks
+│   └── test/                  # Unit tests
+├── connect.yaml               # Connector configuration
+├── docker-compose.yaml        # Local development setup
+├── CLAUDE.md                  # AI development guidelines
+└── DOCUMENTATION.md           # Comprehensive documentation
+
+```
+
+## Documentation
+
+- **[DOCUMENTATION.md](./DOCUMENTATION.md)** - Complete setup, API reference, and deployment guide
+- **[CLAUDE.md](./CLAUDE.md)** - Development guidelines for AI-assisted development
+- **[processor/README.md](./processor/README.md)** - Processor-specific documentation
+
+## Support
+
+For issues or questions:
+- Review [DOCUMENTATION.md](./DOCUMENTATION.md) for detailed guides
+- Check processor logs for errors
+- Verify Harry Rosen API connectivity
+- Test with `/operations/status` endpoint
+
+## License
+
+Proprietary - Harry Rosen / Gluo Organization
+
+---
+
+**Version:** 0.2.0
+**commercetools Connect:** Latest
+**Last Updated:** February 2026
