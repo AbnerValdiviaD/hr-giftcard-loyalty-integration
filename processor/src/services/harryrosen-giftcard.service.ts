@@ -55,7 +55,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       currency: config.mockConnectorCurrency,
     });
 
-    log.info('HarryRosenGiftCardService initialized', {
+    log.info('HarryRosenGiftCardService initialized v4', {
       balanceBaseUrl: config.harryRosenBalanceUrl,
       transactionBaseUrl: config.harryRosenTransactionUrl,
       currency: config.mockConnectorCurrency,
