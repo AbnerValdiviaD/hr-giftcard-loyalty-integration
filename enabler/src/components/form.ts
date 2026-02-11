@@ -35,7 +35,6 @@ export class FormComponent extends DefaultComponent {
   protected i18n: I18n;
   private balanceData: BalanceType | null = null;
   private isPinVisible: boolean = false;
-  private originalBalance: number = 0; // Store original balance in cents
   private remainingBalance: number = 0; // Track remaining balance after applications
 
   constructor(opts: { giftcardOptions: GiftCardOptions; baseOptions: BaseOptions }) {
@@ -76,9 +75,8 @@ export class FormComponent extends DefaultComponent {
     if (balanceResult && balanceResult.status.state === 'Valid' && balanceResult.amount) {
       // Show balance result
       this.balanceData = balanceResult;
-      this.originalBalance = balanceResult.amount.centAmount;
       this.remainingBalance = balanceResult.amount.centAmount;
-      this.renderBalanceResult(balanceResult);
+      this.renderBalanceResult(false); // false = show full balance initially
     }
   }
 

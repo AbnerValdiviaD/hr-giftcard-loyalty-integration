@@ -55,7 +55,7 @@ This connector enables Harry Rosen gift cards as a payment method in commercetoo
 
 ```bash
 # Clone repository
-git clone https://github.com/gluo/hr-giftcard-integration-ct.git
+git clone https://github.com/HarryRosen/hr-giftcard-integration-ct.git
 cd hr-giftcard-integration-ct
 
 # Install processor dependencies
@@ -275,7 +275,7 @@ For issues or questions:
 
 ## License
 
-Proprietary - Harry Rosen / Gluo Organization
+Proprietary - Harry Rosen / Orium Organization
 
 ---
 
