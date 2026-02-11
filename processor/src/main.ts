@@ -9,7 +9,7 @@ import { setupFastify } from './server/server';
   const HOST = '0.0.0.0';
   try {
     await server.listen({
-      port: 8080,
+      port: 8081,
       host: HOST,
     });
   } catch (err) {

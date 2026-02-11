@@ -6,7 +6,7 @@ import {
   MockClientRollbackResponse,
   GiftCardCodeType,
   MockClientStatusResponse,
-} from './types/mock-giftcard.client.type';
+} from './types/giftcard-mock.client.type';
 
 import { randomUUID } from 'crypto';
 

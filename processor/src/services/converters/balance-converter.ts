@@ -1,6 +1,6 @@
-import { MockClientBalanceResponse, GiftCardCodeType } from '../../clients/types/mock-giftcard.client.type';
-import { BalanceResponseSchemaDTO } from '../../dtos/mock-giftcards.dto';
-import { MockCustomError } from '../../errors/mock-api.error';
+import { MockClientBalanceResponse, GiftCardCodeType } from '../../clients/types/giftcard-mock.client.type';
+import { BalanceResponseSchemaDTO } from '../../dtos/giftcard.dto';
+import { MockCustomError } from '../../errors/giftcard-api.error';
 export class BalanceConverter {
   public convert(opts: MockClientBalanceResponse): BalanceResponseSchemaDTO {
     switch (opts?.code) {

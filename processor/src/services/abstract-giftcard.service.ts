@@ -14,7 +14,7 @@ import {
   StatusResponse,
 } from './types/operation.type';
 import { PaymentIntentResponseSchemaDTO } from '../dtos/operations/payment-intents.dto';
-import { BalanceResponseSchemaDTO, RedeemRequestDTO, RedeemResponseDTO } from '../dtos/mock-giftcards.dto';
+import { BalanceResponseSchemaDTO, RedeemRequestDTO, RedeemResponseDTO } from '../dtos/giftcard.dto';
 
 export abstract class AbstractGiftCardService {
   protected ctCartService: CommercetoolsCartService;
@@ -39,15 +39,25 @@ export abstract class AbstractGiftCardService {
 
   /**
    * Validate Code and return balance
+   * @param code - Gift card code/number
+   * @param securityCode - Optional security code/PIN
    * @returns
    */
-  abstract balance(code: string): Promise<BalanceResponseSchemaDTO>;
+  abstract balance(code: string, securityCode?: string): Promise<BalanceResponseSchemaDTO>;
 
   /**
    * Redeem Code
+   * @param request - Redeem request with code, amount, and optional security code
    * @returns
    */
-  abstract redeem(opt: { data: RedeemRequestDTO }): Promise<RedeemResponseDTO>;
+  abstract redeem(request: RedeemRequestDTO): Promise<RedeemResponseDTO>;
+
+  /**
+   * Remove payment from cart and delete payment object
+   * @param paymentId - Payment ID to remove
+   * @returns
+   */
+  abstract removePayment(paymentId: string): Promise<void>;
 
   /**
    * Capture payment

@@ -39,7 +39,7 @@ jobs:
           echo Authenticating with commercetools
           echo "********************************"
 
-          OAUTH_RESPONSE=$(curl --silent --show-error --location --request POST 'https://auth.europe-west1.gcp.commercetools.com/oauth/token?grant_type=client_credentials' -u $CLIENT_ID:$CLIENT_SECRET)
+          OAUTH_RESPONSE=$(curl --silent --show-error --location --request POST 'https://auth.us-central1.gcp.commercetools.com/oauth/token?grant_type=client_credentials' -u $CLIENT_ID:$CLIENT_SECRET)
             
           ACCESS_TOKEN=$(echo $OAUTH_RESPONSE | jq -r '.access_token')
           echo Access token retrieved
@@ -48,7 +48,7 @@ jobs:
           echo Updating connector
           echo "********************************"
           
-          CONNECTOR_DETAILS=$(curl --silent --show-error --location "https://connect.europe-west1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
+          CONNECTOR_DETAILS=$(curl --silent --show-error --location "https://connect.us-central1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
               --header 'Content-Type: application/json' \
               --header "Authorization: Bearer $ACCESS_TOKEN")
           
@@ -57,14 +57,14 @@ jobs:
 
           echo "Updating connector version: $VERSION isPreviewable: $IS_PREVIWABLE"
           
-          CONNECTOR_DETAILS=$(curl --fail-with-body --silent --location POST "https://connect.europe-west1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
+          CONNECTOR_DETAILS=$(curl --fail-with-body --silent --location POST "https://connect.us-central1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
               --header 'Content-Type: application/json' \
               --header "Authorization: Bearer $ACCESS_TOKEN" \
               --data-raw "{\"version\": $VERSION, \"actions\": [{\"action\": \"setRepository\",\"url\": \"git@github.com:$GITHUB_REPOSITORY.git\",\"tag\": \"$GITHUB_REF_NAME\"}]}")
 
           VERSION=$(echo $CONNECTOR_DETAILS | jq -r '.version')
 
-          CONNECTOR_DETAILS=$(curl --fail-with-body --silent --location POST "https://connect.europe-west1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
+          CONNECTOR_DETAILS=$(curl --fail-with-body --silent --location POST "https://connect.us-central1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
               --header 'Content-Type: application/json' \
               --header "Authorization: Bearer $ACCESS_TOKEN" \
               --data-raw "{\"version\": $VERSION, \"actions\": [{\"action\": \"updatePreviewable\"}]}")
@@ -81,7 +81,7 @@ jobs:
             fi
             
             # Execute the curl request and capture the response
-            RESPONSE=$(curl --silent --show-error --location "https://connect.europe-west1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
+            RESPONSE=$(curl --silent --show-error --location "https://connect.us-central1.gcp.commercetools.com/connectors/drafts/key=$CONNECTOR_KEY" \
               --header 'Content-Type: application/json' \
               --header "Authorization: Bearer $ACCESS_TOKEN")
             

@@ -1,7 +1,7 @@
 import { paymentSDK } from '../payment-sdk';
-import { MockGiftCardService } from '../services/mock-giftcard.service';
+import { HarryRosenGiftCardService } from '../services/harryrosen-giftcard.service';
 
-const giftCardService = new MockGiftCardService({
+const giftCardService = new HarryRosenGiftCardService({
   ctCartService: paymentSDK.ctCartService,
   ctPaymentService: paymentSDK.ctPaymentService,
   ctOrderService: paymentSDK.ctOrderService,

@@ -77,23 +77,23 @@ deployAs:
         - key: CTP_AUTH_URL
           description: commercetools Auth URL
           required: true
-          default: https://auth.europe-west1.gcp.commercetools.com
+          default: https://auth.us-central1.gcp.commercetools.com
         - key: CTP_API_URL
           description: commercetools API URL
           required: true
-          default: https://api.europe-west1.gcp.commercetools.com
+          default: https://api.us-central1.gcp.commercetools.com
         - key: CTP_SESSION_URL
           description: Session API URL
           required: true
-          default: https://session.europe-west1.gcp.commercetools.com
+          default: https://session.us-central1.gcp.commercetools.com
         - key: CTP_JWKS_URL
-          description: JWKs url (example - https://mc-api.europe-west1.gcp.commercetools.com/.well-known/jwks.json)
+          description: JWKs url (example - https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json)
           required: true
-          default: https://mc-api.europe-west1.gcp.commercetools.com/.well-known/jwks.json
+          default: https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json
         - key: CTP_JWT_ISSUER
-          description: JWT Issuer for jwt validation (example - https://mc-api.europe-west1.gcp.commercetools.com)
+          description: JWT Issuer for jwt validation (example - https://mc-api.us-central1.gcp.commercetools.com)
           required: true
-          default: https://mc-api.europe-west1.gcp.commercetools.com
+          default: https://mc-api.us-central1.gcp.commercetools.com
       securedConfiguration:
         - key: CTP_CLIENT_SECRET
           description: commercetools client secret
@@ -103,13 +103,16 @@ deployAs:
 Here you can see the details about various variables in configuration
 
 - `CTP_PROJECT_KEY`: The key of commercetools composable commerce project.
-- `CTP_CLIENT_ID`: The client ID of your commercetools composable commerce user account. It is used in commercetools client to communicate with commercetools composable commerce via SDK. Expected scopes are: `manage_payments` `manage_orders` `view_sessions` `view_api_clients` `manage_checkout_payment_intents` `introspect_oauth_tokens` `manage_types` `view_types`.
+- `CTP_CLIENT_ID`: The client ID of your commercetools composable commerce user account. It is used in commercetools client to communicate with commercetools composable commerce via SDK. Expected scopes are: `manage_payments` `manage_orders` `view_sessions` `view_api_clients` `manage_checkout_payment_intents` `introspect_oauth_tokens`.
 - `CTP_CLIENT_SECRET`: The client secret of commercetools composable commerce user account. It is used in commercetools client to communicate with commercetools composable commerce via SDK.
-- `CTP_AUTH_URL`: The URL for authentication in commercetools platform. It is used to generate OAuth 2.0 token which is required in every API call to commercetools composable commerce. The default value is `https://auth.europe-west1.gcp.commercetools.com`. For details, please refer to documentation [here](https://docs.commercetools.com/tutorials/api-tutorial#authentication).
-- `CTP_API_URL`: The URL for commercetools composable commerce API. Default value is `https://api.europe-west1.gcp.commercetools.com`.
-- `CTP_SESSION_URL`: The URL for session creation in commercetools platform. Connectors relies on the session created to be able to share information between enabler and processor. The default value is `https://session.europe-west1.gcp.commercetools.com`.
-- `CTP_JWKS_URL`: The URL which provides JSON Web Key Set. Default value is `https://mc-api.europe-west1.gcp.commercetools.com/.well-known/jwks.json`
-- `CTP_JWT_ISSUER`: The issuer inside JSON Web Token which is required in JWT validation process. Default value is `https://mc-api.europe-west1.gcp.commercetools.com`
+
+**Note:** This connector requires an existing payment custom type with `giftCardCode` and `giftCardPin` fields.
+
+- `CTP_AUTH_URL`: The URL for authentication in commercetools platform. It is used to generate OAuth 2.0 token which is required in every API call to commercetools composable commerce. The default value is `https://auth.us-central1.gcp.commercetools.com`. For details, please refer to documentation [here](https://docs.commercetools.com/tutorials/api-tutorial#authentication).
+- `CTP_API_URL`: The URL for commercetools composable commerce API. Default value is `https://api.us-central1.gcp.commercetools.com`.
+- `CTP_SESSION_URL`: The URL for session creation in commercetools platform. Connectors relies on the session created to be able to share information between enabler and processor. The default value is `https://session.us-central1.gcp.commercetools.com`.
+- `CTP_JWKS_URL`: The URL which provides JSON Web Key Set. Default value is `https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json`
+- `CTP_JWT_ISSUER`: The issuer inside JSON Web Token which is required in JWT validation process. Default value is `https://mc-api.us-central1.gcp.commercetools.com`
 - `MOCK_CONNECTOR_CURRENCY`: The currency code assigned to the deployment of this connector template. Remind that each deployment supports single currency.
 
 ## Development

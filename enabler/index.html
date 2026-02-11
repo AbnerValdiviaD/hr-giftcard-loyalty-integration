@@ -80,7 +80,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
           // Fetch connector status
           const statusDisplay = document.getElementById('statusDisplay');
-          const response = await fetch('http://localhost:9002/jwt/token', {
+          const response = await fetch('http://localhost:9000/jwt/token', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

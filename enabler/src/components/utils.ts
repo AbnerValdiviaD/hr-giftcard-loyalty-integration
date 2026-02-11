@@ -20,7 +20,10 @@ export const hideError = (field: string) => {
 };
 
 export const fieldIds = {
+  checkbox: 'giftcard-checkbox',
   code: 'giftcard-code',
+  pin: 'giftcard-pin',
+  amount: 'giftcard-amount',
 };
 
 const handleChangeEvent = (field: string, onValueChange?: (hasValue: boolean) => Promise<void>) => {
@@ -41,7 +44,10 @@ const handleChangeEvent = (field: string, onValueChange?: (hasValue: boolean) =>
 export const addFormFieldsEventListeners = (giftcardOptions: GiftCardOptions) => {
   handleChangeEvent(fieldIds.code, giftcardOptions?.onValueChange);
   handleChangeEvent(fieldIds.code, async () => hideError(fieldIds.code));
+  handleChangeEvent(fieldIds.pin, giftcardOptions?.onValueChange);
+  handleChangeEvent(fieldIds.pin, async () => hideError(fieldIds.pin));
   handleEnter(fieldIds.code, giftcardOptions?.onEnter);
+  handleEnter(fieldIds.pin, giftcardOptions?.onEnter);
 };
 
 type Res = {

@@ -8,27 +8,29 @@ export const ErrorSchema = Type.Object({
 
 const StatusSchema = Type.Object({
   state: Type.String(),
-  errors: Type.Optional(ErrorSchema),
+  errors: Type.Optional(Type.Array(ErrorSchema)),
 });
 
 export const BalanceResponseSchema = Type.Object({
   status: StatusSchema,
-  amount: AmountSchema,
+  amount: Type.Optional(AmountSchema),
 });
 
 export const RedeemRequestSchema = Type.Object({
   code: Type.String(),
-  redeemAmount: AmountSchema,
+  securityCode: Type.Optional(Type.String()),
+  amount: AmountSchema,
 });
 
 export const RedeemResponseSchema = Type.Object({
-  result: Type.String(),
-  paymentReference: Type.String(),
-  redemptionId: Type.String(),
+  isSuccess: Type.Boolean(),
+  paymentReference: Type.Optional(Type.String()),
+  errorMessage: Type.Optional(Type.String()),
 });
 
 export const BalanceRequestSchema = Type.Object({
   code: Type.String(),
+  securityCode: Type.Optional(Type.String()),
 });
 
 export type RedeemRequestDTO = Static<typeof RedeemRequestSchema>;

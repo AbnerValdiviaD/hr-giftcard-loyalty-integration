@@ -1,227 +1,394 @@
-# Giftcard Integration Processor
-This module provides an application based on [commercetools Connect](https://docs.commercetools.com/connect), which is triggered by HTTP requests from Checkout UI for giftcard operations.
+# Harry Rosen Gift Card Connector - Processor
 
-The corresponding payment, cart or order details would be fetched from composable commerce platform, and then be sent to external giftcard service providers for various operations such as balance validation, redemption and refund.
+This module provides a commercetools Connect processor for integrating Harry Rosen gift cards with commercetools Checkout. It handles gift card balance checks, redemptions, and refunds by communicating with the Harry Rosen Gift Card API.
 
-The module also provides template scripts for post-deployment and pre-undeployment action. After deployment or before undeployment via connect service completed, customized actions can be performed based on users' needs.
+## Overview
+
+The processor acts as middleware between commercetools Checkout and the Harry Rosen Gift Card API:
+- Receives requests from the enabler (frontend) via session-based authentication
+- Validates gift card numbers and PINs
+- Communicates with Harry Rosen API for balance, redeem, and refund operations
+- Updates commercetools payment and cart entities
+- Handles payment lifecycle operations (capture, cancel, refund)
 
 ## Getting Started
 
-These instructions will get you up and running on your local machine for development and testing purposes.
-Please run following npm commands under `processor` folder.
+### Prerequisites
 
-#### Install giftcard SDK
-In case SDK is provided by giftcard service provider for communication purpose, you can import the SDK by following commands
-```
-$ npm install <giftcard-sdk>
-```
-#### Install dependencies
-```
-$ npm install
-```
-#### Build the application in local environment. NodeJS source codes are then generated under dist folder
-```
-$ npm run build
-```
-#### Run automation test
-```
-$ npm run test
-```
-#### Run the application in local environment. Remind that the application has been built before it runs
-```
-$ npm run start
-```
-#### Fix the code style
-```
-$ npm run lint:fix
-```
-#### Verify the code style
-```
-$ npm run lint
-```
-#### Run post-deploy script in local environment
-```
-$ npm run connector:post-deploy
-```
-#### Run pre-undeploy script in local environment
-```
-$ npm run connector:pre-undeploy
+- Node.js 18+
+- npm or yarn
+- commercetools project with Checkout enabled
+- Harry Rosen Gift Card API credentials
+- commercetools API client with required scopes
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
 ```
 
-## Running application
+### Configuration
 
-Setup correct environment variables: check `processor/src/config/config.ts` for default values.
+Create a `.env` file in the processor directory:
 
-Make sure commercetools client credential have at least the following permissions:
+```bash
+# commercetools Configuration
+CTP_PROJECT_KEY=your-project-key
+CTP_CLIENT_ID=your-client-id
+CTP_CLIENT_SECRET=your-client-secret
+CTP_AUTH_URL=https://auth.us-central1.gcp.commercetools.com
+CTP_API_URL=https://api.us-central1.gcp.commercetools.com
+CTP_SESSION_URL=https://session.us-central1.gcp.commercetools.com
+CTP_JWKS_URL=https://mc-api.us-central1.gcp.commercetools.com/.well-known/jwks.json
+CTP_JWT_ISSUER=https://mc-api.us-central1.gcp.commercetools.com
 
-* `manage_payments`
-* `manage_checkout_payment_intents`
-* `view_sessions`
-* `introspect_oauth_tokens`
+# Harry Rosen API Configuration
+# Harry Rosen uses different servers for different operations:
+# - Status (health check) & Balance: ckinttest.harryrosen.com:5010
+# - Transactions (redeem/refund): crmapptest.harryrosen.com:8000
+HARRYROSEN_BALANCE_URL=https://ckinttest.harryrosen.com:5010
+HARRYROSEN_TRANSACTION_URL=https://crmapptest.harryrosen.com:8000
+HARRYROSEN_USER=your-username
+HARRYROSEN_PASSWORD=your-password
 
+# Connector Configuration
+MOCK_CONNECTOR_CURRENCY=CAD
+
+# Optional
+LOGGER_LEVEL=info
+HEALTH_CHECK_TIMEOUT=5000
 ```
+
+### Required API Scopes
+
+Your commercetools API client must have these scopes:
+
+- `manage_payments` - Create/update payment entities
+- `manage_orders` - Access cart and order information
+- `view_sessions` - Retrieve session data for authentication
+- `view_api_clients` - Validate API credentials
+- `manage_checkout_payment_intents` - Handle payment modifications
+- `introspect_oauth_tokens` - Validate OAuth tokens
+
+**Tip:** Use the "Payment connector for checkout" template when creating the API client in Merchant Center.
+
+### Required Custom Type
+
+Your commercetools project must have a payment custom type with these fields:
+- `giftCardCode` (String) - Stores card number during two-step flow
+- `giftCardPin` (String) - Stores PIN during two-step flow
+
+## Development
+
+### Build
+
+```bash
+npm run build
+```
+
+Compiles TypeScript to JavaScript in the `/dist` folder.
+
+### Run Locally
+
+```bash
 npm run dev
 ```
 
-## Authentication
+Starts the processor on `http://localhost:8081` (or configured port).
 
-Some of the services have authentication mechanism. 
+### Run Tests
 
-* `oauth2`: Relies on commercetools OAuth2 server
-* `session`: Relies on commercetools session service
-* `jwt`: Relies on the jwt token injected by the merchant center via the forward-to proxy
+```bash
+# Run all tests
+npm run test
 
-### OAuth2
-OAuth2 token can be obtained from commercetools OAuth2 server. It requires API Client created beforehand. For details, please refer to [Requesting an access token using the Composable Commerce OAuth 2.0 service](https://docs.commercetools.com/api/authorization#requesting-an-access-token-using-the-composable-commerce-oauth-20-service).
+# Run tests in watch mode
+npm run test:watch
 
-### Session
-Giftcard connectors relies on session to be able to share information between `enabler` and `processor`.
-To create session before sharing information between these two modules, please execute following request to commercetools session service
+# Run tests with coverage
+npm run test:coverage
 ```
-POST https://session.<region>.commercetools.com/<commercetools-project-key>/sessions
-Authorization: Bearer <oauth token with manage_sessions scope>
 
+### Code Quality
+
+```bash
+# Check code style
+npm run lint
+
+# Fix code style issues
+npm run lint:fix
+```
+
+## Project Structure
+
+```
+processor/
+├── src/
+│   ├── clients/                      # API clients
+│   │   ├── harryrosen-giftcard.client.ts    # Harry Rosen API client (production)
+│   │   ├── giftcard-mock.client.ts          # Mock client (testing)
+│   │   └── types/
+│   ├── services/                     # Business logic
+│   │   ├── abstract-giftcard.service.ts     # Base service class
+│   │   ├── harryrosen-giftcard.service.ts   # Harry Rosen implementation (production)
+│   │   ├── giftcard-mock.service.ts         # Mock implementation (testing)
+│   │   └── converters/                       # Data converters
+│   ├── routes/                       # API routes
+│   │   └── giftcard.route.ts                # Gift card endpoints
+│   ├── dtos/                         # Data transfer objects
+│   │   └── giftcard.dto.ts                  # Request/response types
+│   ├── errors/                       # Error handling
+│   │   └── giftcard-api.error.ts            # Custom errors
+│   ├── server/                       # Server setup
+│   │   ├── app.ts                           # Main application
+│   │   └── plugins/
+│   │       └── giftcard.plugin.ts           # Fastify plugin
+│   └── config/                       # Configuration
+│       └── config.ts                         # Environment config
+├── test/                             # Test files
+│   └── giftcard-mock.service.spec.ts
+└── dist/                             # Compiled output
+```
+
+## API Endpoints
+
+### Health Check
+
+**Endpoint:** `GET /operations/status`
+
+**Authentication:** JWT (from Merchant Center)
+
+**Response:**
+```json
 {
-  "cart": {
-    "cartRef": {
-      "id": "<cart-id>" 
+  "status": "OK",
+  "timestamp": "2026-02-10T17:53:26.819Z",
+  "version": "0.2.0",
+  "checks": [
+    {
+      "name": "commercetools permissions",
+      "status": "UP"
+    },
+    {
+      "name": "Harry Rosen Gift Card API",
+      "status": "UP"
     }
-  },
+  ],
   "metadata": {
-    "allowedPaymentMethods": ["card", "ideal", ...],
-    "paymentInterface"?: "<payment interface that will be set on payment method info https://docs.commercetools.com/api/projects/payments#ctp:api:type:PaymentMethodInfo>"
+    "name": "Harry Rosen Gift Card Connector",
+    "description": "Gift card integration with Harry Rosen",
+    "currency": "CAD"
   }
 }
 ```
 
-Afterwards, session ID can be obtained from response, which is necessary to be put as `x-session-id` inside request header when sending request to endpoints such as `/operations/config` and `/operations/payments`.
+### Check Balance
 
-### JSON web token (JWT)
+**Endpoint:** `POST /balance`
 
-`jwt` needs some workaround to be able to test locally as it depends on the merchant center forward-to proxy.
+**Authentication:** Session (X-Session-Id header)
 
-In order to make easy running the application locally, following commands help to build up a jwt mock server:
-
-####Set environment variable to point to the jwksUrl
+**Request:**
+```json
+{
+  "code": "1234567890123456",
+  "securityCode": "1234"
+}
 ```
-export CTP_JWKS_URL="http://localhost:9000/jwt/.well-known/jwks.json"
+
+**Response:**
+```json
+{
+  "status": {
+    "state": "Valid"
+  },
+  "amount": {
+    "centAmount": 5000,
+    "currencyCode": "CAD"
+  }
+}
 ```
-####Run the jwt server
+
+### Redeem Gift Card
+
+**Endpoint:** `POST /redeem`
+
+**Authentication:** Session (X-Session-Id header)
+
+**Request:**
+```json
+{
+  "code": "1234567890123456",
+  "securityCode": "1234",
+  "amount": {
+    "centAmount": 2500,
+    "currencyCode": "CAD"
+  }
+}
 ```
+
+**Response:**
+```json
+{
+  "isSuccess": true,
+  "paymentReference": "payment-id-123"
+}
+```
+
+### Payment Modifications
+
+**Endpoint:** `POST /operations/payment-intents/{paymentId}`
+
+**Authentication:** OAuth2 (with `manage_checkout_payment_intents` scope)
+
+**Supported Actions:**
+- `capturePayment` - Finalize payment
+- `cancelPayment` - Void/cancel payment
+- `refundPayment` - Refund payment
+
+**Request (Refund Example):**
+```json
+{
+  "actions": [{
+    "action": "refundPayment",
+    "amount": {
+      "centAmount": 2500,
+      "currencyCode": "CAD"
+    }
+  }]
+}
+```
+
+**Response:**
+```json
+{
+  "outcome": "approved"
+}
+```
+
+## Validation Rules
+
+### Gift Card Number (PAN)
+- ✅ Must be numeric
+- ✅ Must be more than 12 characters
+- ✅ Trimmed before validation
+
+### PIN
+- ✅ Must be numeric
+- ✅ Trimmed before validation
+
+## Error Handling
+
+The connector provides user-friendly error messages:
+
+| Error Code | Message |
+|------------|---------|
+| `NotFound` | Gift card not found |
+| `Expired` | Gift card has expired |
+| `ZeroBalance` | Gift card has zero balance |
+| `CurrencyNotMatch` | Currency mismatch |
+| `InvalidCardNumber` | Invalid card number format |
+| `InvalidPIN` | Invalid PIN format |
+| `MissingSecurityCode` | PIN is required |
+
+## Deployment
+
+### Deploy to commercetools Connect
+
+```bash
+# Deploy connector (private by default)
+npm run connector:post-deploy
+```
+
+The connector will be deployed as an **Organization Connector** (private to your organization).
+
+### Post-Deployment
+
+After deployment, configure the connector in Merchant Center:
+1. Go to Settings → Connectors
+2. Find "Harry Rosen Gift Card Connector"
+3. Install to your project
+4. Configure payment integration settings
+
+## Testing
+
+### Local Testing with Mock JWT Server
+
+```bash
+# Start mock JWT server
 docker compose up -d
-```
 
-####Obtain JWT
-```
-# Request token
-curl --location 'http://localhost:9000/jwt/token' \
---header 'Content-Type: application/json' \
---data '{
-    "iss": "https://mc-api.europe-west1.gcp.commercetools.com",
+# Get test JWT token
+curl -X POST http://localhost:9000/jwt/token \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "iss": "https://mc-api.us-central1.gcp.commercetools.com",
     "sub": "subject",
-    "https://mc-api.europe-west1.gcp.commercetools.com/claims/project_key": "<commercetools-project-key>"
-}'
-```
-Token can be found in response
-```
-{"token":"<token>"}
-```
+    "https://mc-api.us-central1.gcp.commercetools.com/claims/project_key": "your-project-key"
+  }'
 
-Use the token to authenticate requests protected by JWT: `Authorization: Bearer <token>`. 
-
-## APIs
-
-The processor exposes following endpoints to execute various operations on giftcard connector:
-
-### Get status
-
-It provides health check feature for checkout front-end so that the correctness of configurations can be verified.
-
-#### Endpoint
-
-`GET /operations/status`
-
-#### Request Parameters
-
-N/A
-
-#### Response Parameters
-
-It returns following attributes in response:
-
-- status: It indicates the health check status. It can be `OK`, `Partially Available` or `Unavailable`
-- timestamp: The timestamp of the status request
-- version: Current version of the payment connector.
-- checks: List of health check result details. It contains health check result with various external system including commercetools composable commerce and giftcard service providers.
-
-```
-    [
-        {
-            name: <name of external system>
-            status: <status with indicator UP or DOWN>
-            details: <additional information for connection checking>
-        }
-    ]
+# Use token in requests
+curl http://localhost:8081/operations/status \
+  -H "Authorization: Bearer <token>"
 ```
 
-- metadata: It lists a collection of metadata including the name/description of the connector and the version of SDKs used to connect to external system.
+### Test vs Production
 
-### Modify payment
+- **Production:** Uses `HarryRosenGiftCardService` (configured in `src/server/app.ts`)
+- **Testing:** Uses `GiftCardMockService` for unit tests
+- Switch implementation in `app.ts` by changing which service is instantiated
 
-Private endpoint called by Checkout frontend to support various payment update requests such as cancel/refund/capture payment. It is protected by `manage_checkout_payment_intents` access right of composable commerce OAuth2 token.
+## Harry Rosen API Integration
 
-#### Endpoint
+### Endpoints Used
 
-`POST /operations/payment-intents/{paymentsId}`
+| Operation | Endpoint | Method | Auth |
+|-----------|----------|--------|------|
+| Health Check | `/` | GET | None |
+| Balance | `/api/giftcard/balance` | POST | Basic Auth |
+| Redeem | `/api/giftcard/redeem` | POST | Basic Auth |
+| Refund | `/api/giftcard/return` | POST | Basic Auth |
 
-#### Request Parameters
+### Currency Conversion
 
-The request payload is different based on different update operations:
+Harry Rosen API uses **dollars**, commercetools uses **cents**:
 
-- Cancel Payment
+```typescript
+// To Harry Rosen: cents → dollars
+const amountInDollars = centAmount / 100;
 
+// From Harry Rosen: dollars → cents
+const centAmount = Math.round(amountInDollars * 100);
 ```
-{
-    actions: [{
-        action: "cancelPayment",
-    }]
-}
-```
 
-- Capture Payment
-  - centAmount: Amount in the smallest indivisible unit of a currency. For example, 5 EUR is specified as 500 while 5 JPY is specified as 5.
-  - currencyCode: Currency code compliant to [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217)
-  ```
-  {
-      actions: [{
-          action: "capturePayment",
-          amount: {
-              centAmount: <amount>,
-              currencyCode: <currecy code>
-          }
-      }]
-  }
-  ```
-- Refund Payment
-  - centAmount: Amount in the smallest indivisible unit of a currency. For example, 5 EUR is specified as 500 while 5 JPY is specified as 5.
-  - currencyCode: Currency code compliant to [ISO 4217](https://en.wikipedia.org/wiki/ISO_4217)
-  ```
-  {
-      actions: [{
-          action: "refundPayment",
-          amount: {
-              centAmount: <amount>,
-              currencyCode: <currecy code>
-          }
-      }]
-  }
-  ```
+## Troubleshooting
 
-#### Response Parameters
+### Health Check Times Out
 
-```
-{
-    outcome: "approved|rejected|received"
-}
+If the health check shows Harry Rosen API as "DOWN":
+- Check VPN connection to Harry Rosen network
+- Verify `HARRYROSEN_URL` is correct
+- Test connectivity: `curl https://ckinttest.harryrosen.com:5010/`
 
-```
+### 401 Unauthorized
+
+- Verify `HARRYROSEN_USER` and `HARRYROSEN_PASSWORD` are correct
+- Check if API credentials have expired
+
+### Session Not Active
+
+- Ensure cart is in "Active" state
+- Verify session was created with `manage_sessions` scope
+- Check `X-Session-Id` header is being sent
+
+## Support
+
+For issues or questions:
+- Check [DOCUMENTATION.md](./DOCUMENTATION.md) for detailed guides
+- Review [CLAUDE.md](../CLAUDE.md) for development guidelines
+- Open an issue in the repository
+
+## License
+
+[Your License Here]

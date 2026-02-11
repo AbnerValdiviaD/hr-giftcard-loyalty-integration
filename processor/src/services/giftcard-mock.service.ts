@@ -15,20 +15,20 @@ import {
   ReversePaymentRequest,
 } from './types/operation.type';
 import { PaymentModificationStatus } from '../dtos/operations/payment-intents.dto';
-import { RedeemRequestDTO } from '../dtos/mock-giftcards.dto';
+import { RedeemRequestDTO } from '../dtos/giftcard.dto';
 import { getConfig } from '../config/config';
 import { appLogger, paymentSDK } from '../payment-sdk';
 import { AbstractGiftCardService } from './abstract-giftcard.service';
-import { MockAPI } from '../clients/mock-giftcard.client';
+import { MockAPI } from '../clients/giftcard-mock.client';
 import {
   MockClientBalanceResponse,
   MockClientRedeemRequest,
   MockClientRedeemResponse,
   GiftCardCodeType,
-} from '../clients/types/mock-giftcard.client.type';
+} from '../clients/types/giftcard-mock.client.type';
 import { getCartIdFromContext, getPaymentInterfaceFromContext } from '../libs/fastify/context/context';
-import { BalanceResponseSchemaDTO, RedeemResponseDTO } from '../dtos/mock-giftcards.dto';
-import { MockCustomError } from '../errors/mock-api.error';
+import { BalanceResponseSchemaDTO, RedeemResponseDTO } from '../dtos/giftcard.dto';
+import { MockCustomError } from '../errors/giftcard-api.error';
 import { BalanceConverter } from './converters/balance-converter';
 import { RedemptionConverter } from './converters/redemption-converter';
 
@@ -131,8 +131,8 @@ export class MockGiftCardService extends AbstractGiftCardService {
     return this.balanceConverter.convert(getBalanceResult);
   }
 
-  async redeem(opts: { data: RedeemRequestDTO }): Promise<RedeemResponseDTO> {
-    const redeemCode = opts.data.code;
+  async redeem(request: RedeemRequestDTO): Promise<RedeemResponseDTO> {
+    const redeemCode = request.code;
     if (redeemCode && redeemCode.startsWith('Valid-00')) {
       throw new MockCustomError({
         message: 'The gift card is expired.',
@@ -145,7 +145,7 @@ export class MockGiftCardService extends AbstractGiftCardService {
     });
 
     const amountPlanned = await this.ctCartService.getPaymentAmount({ cart: ctCart });
-    const redeemAmount = opts.data.redeemAmount;
+    const redeemAmount = request.amount;
 
     if (getConfig().mockConnectorCurrency !== amountPlanned.currencyCode) {
       throw new MockCustomError({
@@ -181,12 +181,12 @@ export class MockGiftCardService extends AbstractGiftCardService {
       paymentId: ctPayment.id,
     });
 
-    const request: MockClientRedeemRequest = {
+    const mockRequest: MockClientRedeemRequest = {
       code: redeemCode,
       amount: redeemAmount,
     };
 
-    const response: MockClientRedeemResponse = await MockAPI().redeem(request);
+    const response: MockClientRedeemResponse = await MockAPI().redeem(mockRequest);
 
     const updatedPayment = await this.ctPaymentService.updatePayment({
       id: ctPayment.id,
@@ -199,6 +199,15 @@ export class MockGiftCardService extends AbstractGiftCardService {
       },
     });
     return this.redemptionConverter.convert({ redemptionResult: response, createPaymentResult: updatedPayment });
+  }
+
+  /**
+   * Remove payment from cart and delete payment object
+   */
+  async removePayment(paymentId: string): Promise<void> {
+    // TODO: Not fully implemented - SDK doesn't expose updateCart/removePayment
+    // For now, payment remains orphaned (no transaction, no funds charged)
+    await this.ctPaymentService.getPayment({ id: paymentId });
   }
 
   /**

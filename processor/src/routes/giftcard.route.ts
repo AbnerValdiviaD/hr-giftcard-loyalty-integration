@@ -3,19 +3,19 @@ import {
   SessionQueryParamAuthenticationHook,
 } from '@commercetools/connect-payments-sdk';
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { MockGiftCardService } from '../services/mock-giftcard.service';
+import { AbstractGiftCardService } from '../services/abstract-giftcard.service';
 import {
   BalanceRequestSchemaDTO,
   BalanceResponseSchema,
   BalanceResponseSchemaDTO,
   RedeemRequestDTO,
   RedeemResponseSchema,
-} from '../dtos/mock-giftcards.dto';
+} from '../dtos/giftcard.dto';
 import { Type } from '@sinclair/typebox';
 import { AmountSchema } from '../dtos/operations/payment-intents.dto';
 
 type RoutesOptions = {
-  giftCardService: MockGiftCardService;
+  giftCardService: AbstractGiftCardService;
   sessionHeaderAuthHook: SessionHeaderAuthenticationHook;
   sessionQueryParamAuthHook: SessionQueryParamAuthenticationHook;
 };
@@ -40,7 +40,9 @@ export const mockGiftCardServiceRoutes = async (
           type: 'object',
           properties: {
             code: Type.String(),
+            securityCode: Type.Optional(Type.String()),
           },
+          required: ['code'],
         },
         response: {
           200: BalanceResponseSchema,
@@ -48,8 +50,8 @@ export const mockGiftCardServiceRoutes = async (
       },
     },
     async (request, reply) => {
-      const { code } = request.body;
-      const res = await opts.giftCardService.balance(code);
+      const { code, securityCode } = request.body;
+      const res = await opts.giftCardService.balance(code, securityCode);
       return reply.status(200).send(res);
     },
   );
@@ -63,9 +65,10 @@ export const mockGiftCardServiceRoutes = async (
           type: 'object',
           properties: {
             code: Type.String(),
-            redeemAmount: AmountSchema,
+            securityCode: Type.Optional(Type.String()),
+            amount: AmountSchema,
           },
-          required: ['code', 'redeemAmount'],
+          required: ['code', 'amount'],
         },
         response: {
           200: RedeemResponseSchema,
@@ -73,11 +76,41 @@ export const mockGiftCardServiceRoutes = async (
       },
     },
     async (request, reply) => {
-      const res = await opts.giftCardService.redeem({
-        data: request.body,
-      });
+      const res = await opts.giftCardService.redeem(request.body);
 
       return reply.status(200).send(res);
+    },
+  );
+
+  fastify.delete<{
+    Params: { paymentId: string };
+    Reply: { success: boolean };
+  }>(
+    '/payment/:paymentId',
+    {
+      preHandler: [opts.sessionHeaderAuthHook.authenticate()],
+      schema: {
+        params: {
+          type: 'object',
+          properties: {
+            paymentId: Type.String(),
+          },
+          required: ['paymentId'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: Type.Boolean(),
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { paymentId } = request.params;
+      await opts.giftCardService.removePayment(paymentId);
+      return reply.status(200).send({ success: true });
     },
   );
 };

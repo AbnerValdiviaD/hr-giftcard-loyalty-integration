@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { paymentSDK } from '../../payment-sdk';
-import { mockGiftCardServiceRoutes } from '../../routes/mock-giftcard.route';
+import { mockGiftCardServiceRoutes } from '../../routes/giftcard.route';
 import { app } from '../app';
 
 export default async function (server: FastifyInstance) {

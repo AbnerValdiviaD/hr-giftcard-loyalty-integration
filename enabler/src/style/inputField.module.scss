@@ -1,213 +1,425 @@
-@use "colors";
-@use "variables";
+// Gift Card Component Styles
 
-
-@use './vx' as *;
-
-.inputContainer {
-  position: relative;
+.giftCardWrapper {
   width: 100%;
-  font-family: variables.$font-family;
-  margin-bottom: 1.5rem;
-
-  .inputLabel {
-    position: absolute;
-    width: 100%;
-    top: 1rem;
-    padding: 0 0.25rem 0 1rem;
-
-    font-size: 1rem;
-    line-height: 1.5rem;
-    background-color: transparent;
-    color: variables.$color-border-focus;
-    transition: 0.3s all;
-    pointer-events: none;
-    z-index: variables.$z-index-1;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .inputField {
-    width: 100%;
-    margin: 0;
-    padding: 1rem 0.75rem;
-    box-sizing: border-box;
-    font-size: 1rem;
-    line-height: 1rem;
-    border: 1px solid variables.$color-border-default;
-    border-radius: 4px;
-    &::placeholder {
-      opacity: 0;
-      transition: 0.3s opacity;
-    }
-  }
-
-  .inputField:hover {
-    border: 1px solid variables.$color-border-focus;
-    cursor: pointer;
-  }
-
-  .helperText {
-    color: variables.$color-text-helper;
-    font-size: 0.75rem;
-    line-height: 0.75rem;
-    padding: 0.25rem 0.75rem 0.25rem 1rem;
-  }
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
-.inputContainer:not(.containValue) {
-  .inputField {
-    width: 100%;
-    margin: 0;
-    padding: 1rem 0.75rem;
-    box-sizing: border-box;
-    font-size: 1rem;
-    line-height: 1rem;
-    border: 1px solid variables.$color-border-default;
-    border-radius: 4px;
-    &::placeholder {
-      opacity: 0;
-      transition: 0.3s opacity;
-    }
-    &:not(:focus)::-webkit-datetime-edit-year-field:not([aria-valuenow]),
-    &:not(:focus)::-webkit-datetime-edit-month-field:not([aria-valuenow]),
-    &:not(:focus)::-webkit-datetime-edit-day-field:not([aria-valuenow]) {
-      color: transparent;
-    }
-    &:not(:focus):in-range::-webkit-datetime-edit-year-field,
-    &:not(:focus):in-range::-webkit-datetime-edit-month-field,
-    &:not(:focus):in-range::-webkit-datetime-edit-day-field,
-    &:not(:focus):in-range::-webkit-datetime-edit-hour-field,
-    &:not(:focus):in-range::-webkit-datetime-edit-minute-field,
-    &:not(:focus):in-range::-webkit-datetime-edit-text {
-      color: transparent;
-    }
-  }
+// Checkbox Section
+.checkboxSection {
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 16px;
 }
 
-.inputContainer:focus-within,
-.disabledWithValue,
-.inputContainer.containValue {
-  overflow: initial;
-
-  .inputLabel {
-    transform: translateY(-1.375rem);
-    width: auto;
-    padding: 0 0.25rem;
-    left: 0.75rem;
-    color: var(--ctc-input-field-focus);
-    background-color: #fff;
-    font-size: 0.75rem;
-    line-height: 0.75rem;
-  }
-
-  .inputField {
-    outline-color: var(--ctc-input-field-focus);
-  }
-
-  .inputField::placeholder {
-    opacity: 1;
-  }
-}
-
-.hasGreyBackground.inputContainer:focus-within {
-  .inputLabel {
-    background-color: colors.$color-style-side-background;
-  }
-}
-
-.containValue:not(:focus-within),
-.disabledWithValue {
-  .inputLabel {
-    color: variables.$color-border-default;
-  }
-}
-
-.trailingIconContainer {
-  .inputField {
-    padding-right: 3.25rem;
-  }
-  .trailingIcon {
-    position: absolute;
-    right: 1rem;
-    top: 1rem;
-    width: 1.5rem;
-    height: 1.5rem;
-    cursor: pointer;
-  }
-}
-
-.leadingIconContainer {
-  .inputField {
-    padding-left: 3rem;
-  }
-  .leadingIcon {
-    position: absolute;
-    left: 0.75rem;
-    top: 1rem;
-    width: 1.5rem;
-    height: 1.5rem;
-    cursor: pointer;
-  }
-  .inputLabel {
-    left: 3rem;
-  }
-}
-
-.inputContainer.error {
-  margin-bottom: 1rem;
-  .inputField {
-    border: 2px solid variables.$color-status-error;
-    outline: none;
-  }
-  .helperText {
-    color: variables.$color-status-error;
-  }
-}
-
-.inputContainer.error:focus-within,
-.inputContainer.error.containValue {
-  .inputLabel {
-    color: variables.$color-status-error;
-    max-width: calc(100% - 1rem);
-  }
-}
-
-.inputContainer.disabled {
-  .inputField {
-    cursor: not-allowed;
-    border: 1px solid variables.$color-border-default;
-    color: variables.$color-border-default;
-    background-color: variables.$color-text-white;
-  }
-  .inputLabel {
-    color: variables.$color-border-default;
-  }
-}
-
-.inputFieldTooltip {
+.checkbox {
   position: absolute;
-  top: 1rem;
-  right: 0.35rem;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+
+  &:checked + .checkboxLabel .checkboxIcon {
+    background-color: #4a90e2;
+    border-color: #4a90e2;
+
+    &::after {
+      display: block;
+    }
+  }
 }
 
-.errorField {
-  color: variables.$color-status-error;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.75rem 0.25rem 1rem;
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  font-size: 18px;
+  font-weight: 500;
 }
 
-.wrapper {
+.checkboxIcon {
   position: relative;
-  width: 100%;
-  margin-bottom: 1rem;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  background-color: #fff;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  margin-right: 12px;
+  transition: all 0.2s ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    display: none;
+    left: 7px;
+    top: 3px;
+    width: 6px;
+    height: 11px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
 }
 
-.hidden {
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #000;
+}
+
+// Form Content
+.formContent {
+  padding: 32px 24px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.sectionHeader {
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #000;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.infoIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #999;
+  color: #999;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: help;
+}
+
+.helpText {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.link {
+  color: #4a90e2;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Input Row Layout
+.inputRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.inputGroup {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+
+  &.pinGroup {
+    position: relative;
+    max-width: 380px;
+  }
+}
+
+.input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+  }
+
+  &::placeholder {
+    color: #999;
+  }
+
+  .pinGroup & {
+    padding-right: 80px;
+  }
+}
+
+.showButton {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background: #e0e0e0;
+  }
+
+  &:active {
+    background: #d0d0d0;
+  }
+}
+
+.loadBalanceButton {
+  flex-shrink: 0;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+  height: fit-content;
+  align-self: flex-start;
+
+  &:hover {
+    background: #333;
+  }
+
+  &:active {
+    background: #000;
+  }
+
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+}
+
+// Balance Result
+.balanceResultContainer {
+  margin-bottom: 24px;
+}
+
+.balanceResult {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.amountInputWrapper {
+  position: relative;
+  flex-shrink: 0;
+  max-width: 300px;
+}
+
+.currencySymbol {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  pointer-events: none;
+}
+
+.amountInput {
+  width: 100%;
+  padding: 14px 16px 14px 36px;
+  font-size: 18px;
+  font-weight: 600;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+  }
+
+  // Remove number input spinners
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+.balanceMessage {
+  flex: 1;
+  padding-top: 12px;
+
+  p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #333;
+
+    strong {
+      font-weight: 700;
+      color: #000;
+    }
+  }
+}
+
+// Apply Button
+.applyButton {
+  background: #fff;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: 4px;
+  padding: 14px 48px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 200px;
+
+  &:hover:not(:disabled) {
+    background: #000;
+    color: #fff;
+  }
+
+  &:active:not(:disabled) {
+    background: #333;
+  }
+
+  &.disabled,
+  &:disabled {
+    border-color: #ccc;
+    color: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+
+    &:hover {
+      background: #fff;
+      color: #ccc;
+    }
+  }
+}
+
+// Error Handling
+.errorField {
+  color: #d32f2f;
+  font-size: 13px;
+  margin-top: 6px;
+  min-height: 18px;
   display: none;
+
+  &:not(:empty) {
+    display: block;
+  }
+}
+
+.error .input {
+  border-color: #d32f2f;
+
+  &:focus {
+    box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.1);
+  }
+}
+
+// Legacy styles for compatibility
+.wrapper {
+  width: 100%;
 }
 
 .paymentForm {
-  margin-top: 1rem;
+  width: 100%;
+}
+
+.inputContainer {
+  margin-bottom: 16px;
+}
+
+.inputLabel {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.inputField {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #4a90e2;
+  }
+}
+
+.hidden {
+  display: none !important;
+}
+
+.containValue {
+  // Add styles for when input contains value if needed
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .inputRow {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .inputGroup {
+    max-width: 100% !important;
+  }
+
+  .loadBalanceButton {
+    width: 100%;
+  }
+
+  .balanceResult {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .amountInputWrapper {
+    max-width: 100%;
+  }
+
+  .applyButton {
+    width: 100%;
+  }
 }

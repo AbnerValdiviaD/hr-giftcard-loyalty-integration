@@ -12,7 +12,7 @@ import {
   MultiErrorx,
 } from '@commercetools/connect-payments-sdk';
 import { TAuthErrorResponse, TErrorObject, TErrorResponse, TMockCustomErrorResponse } from './dtos/error.dto';
-import { MockApiError, MockCustomError } from '../../errors/mock-api.error';
+import { MockApiError, MockCustomError } from '../../errors/giftcard-api.error';
 
 function isFastifyValidationError(error: Error): error is FastifyError {
   return (error as unknown as FastifyError).validation != undefined;

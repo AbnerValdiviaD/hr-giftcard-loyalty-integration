@@ -1,7 +1,7 @@
 import { describe, test, expect, afterEach, jest, beforeEach, beforeAll } from '@jest/globals';
 import { setupServer } from 'msw/node';
 import { paymentSDK } from '../src/payment-sdk';
-import { MockGiftCardService, MockGiftCardServiceOptions } from '../src/services/mock-giftcard.service';
+import { MockGiftCardService, MockGiftCardServiceOptions } from '../src/services/giftcard-mock.service';
 import { DefaultCartService } from '@commercetools/connect-payments-sdk/dist/commercetools/services/ct-cart.service';
 import { DefaultPaymentService } from '@commercetools/connect-payments-sdk/dist/commercetools/services/ct-payment.service';
 
@@ -36,7 +36,7 @@ function setupMockConfig(keysAndValues: Record<string, string>) {
   jest.spyOn(DefaultCartService.prototype, 'getCart').mockResolvedValue(getCartOK());
 }
 
-describe('mock-giftcard.service', () => {
+describe('giftcard-mock.service', () => {
   const mockServer = setupServer();
   const opts: MockGiftCardServiceOptions = {
     ctCartService: paymentSDK.ctCartService,

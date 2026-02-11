@@ -1,6 +1,6 @@
-import { MockClientRedeemResponse } from '../../clients/types/mock-giftcard.client.type';
+import { MockClientRedeemResponse } from '../../clients/types/giftcard-mock.client.type';
 
-import { RedeemResponseDTO } from '../../dtos/mock-giftcards.dto';
+import { RedeemResponseDTO } from '../../dtos/giftcard.dto';
 import { Payment } from '@commercetools/connect-payments-sdk';
 
 export class RedemptionConverter {
@@ -18,10 +18,11 @@ export class RedemptionConverter {
     createPaymentResult: Payment;
   }): RedeemResponseDTO {
     const redemptionResultObj = opts?.redemptionResult;
+    const isSuccess = this.convertMockClientResultCode(redemptionResultObj.resultCode || '') === 'Success';
+
     return {
-      result: this.convertMockClientResultCode(redemptionResultObj.resultCode || ''),
+      isSuccess,
       paymentReference: opts?.createPaymentResult.id || '',
-      redemptionId: redemptionResultObj.redemptionReference || '',
     };
   }
 }
