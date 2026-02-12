@@ -39,9 +39,10 @@ const server_1 = require("./server/server");
 (async () => {
     const server = await (0, server_1.setupFastify)();
     const HOST = '0.0.0.0';
+    const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
     try {
         await server.listen({
-            port: 8081,
+            port: PORT,
             host: HOST,
         });
     }
