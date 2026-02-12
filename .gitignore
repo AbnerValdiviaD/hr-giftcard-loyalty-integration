@@ -9,8 +9,9 @@
 node_modules/
 
 # Build outputs
-dist/
-build/
+# Note: dist/ and build/ are committed for commercetools Connect deployments
+# dist/
+# build/
 *.log
 
 # IDE

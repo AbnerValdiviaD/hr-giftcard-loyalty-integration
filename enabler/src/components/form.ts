@@ -33,95 +33,60 @@ export class FormBuilder extends BaseComponentBuilder {
 
 export class FormComponent extends DefaultComponent {
   protected i18n: I18n;
-  private balanceData: BalanceType | null = null;
-  private isPinVisible: boolean = false;
-  private remainingBalance: number = 0; // Track remaining balance after applications
+  private isSubmitting: boolean = false;
 
   constructor(opts: { giftcardOptions: GiftCardOptions; baseOptions: BaseOptions }) {
     super(opts);
     this.i18n = new I18n(translations);
     this.balance = this.balance.bind(this);
     this.submit = this.submit.bind(this);
-    this.togglePinVisibility = this.togglePinVisibility.bind(this);
-    this.handleCheckboxChange = this.handleCheckboxChange.bind(this);
-    this.handleLoadBalance = this.handleLoadBalance.bind(this);
+    this.handleAddGiftCard = this.handleAddGiftCard.bind(this);
+    this.handleClose = this.handleClose.bind(this);
+    this.handleCancel = this.handleCancel.bind(this);
   }
 
-  private togglePinVisibility(): void {
-    this.isPinVisible = !this.isPinVisible;
-    const pinInput = getInput(fieldIds.pin) as HTMLInputElement;
-    const showButton = document.getElementById('pin-show-button');
-
-    if (pinInput) {
-      pinInput.type = this.isPinVisible ? 'text' : 'password';
-    }
-    if (showButton) {
-      showButton.textContent = this.isPinVisible ? 'Hide' : 'Show';
+  private handleClose(): void {
+    const modal = document.getElementById('giftcard-modal');
+    if (modal) {
+      modal.remove();
     }
   }
 
-  private handleCheckboxChange(event: Event): void {
-    const checkbox = event.target as HTMLInputElement;
-    const formContent = document.getElementById('giftcard-form-content');
-
-    if (formContent) {
-      formContent.style.display = checkbox.checked ? 'block' : 'none';
-    }
+  private handleCancel(): void {
+    this.handleClose();
   }
 
-  private async handleLoadBalance(): Promise<void> {
-    const balanceResult = await this.balance();
+  private async handleAddGiftCard(): Promise<void> {
+    if (this.isSubmitting) return;
 
-    if (balanceResult && balanceResult.status.state === 'Valid' && balanceResult.amount) {
-      // Show balance result
-      this.balanceData = balanceResult;
-      this.remainingBalance = balanceResult.amount.centAmount;
-      this.renderBalanceResult(false); // false = show full balance initially
-    }
-  }
+    try {
+      this.isSubmitting = true;
+      const submitButton = document.getElementById('add-giftcard-button') as HTMLButtonElement;
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Processing...';
+      }
 
-  private renderBalanceResult(resetAmountField: boolean = false): void {
-    const balanceContainer = document.getElementById('balance-result-container');
-    const applyButton = document.getElementById('apply-button') as HTMLButtonElement;
+      // First check balance
+      const balanceResult = await this.balance();
 
-    if (balanceContainer) {
-      // Use remaining balance for display
-      const balanceToShow = this.remainingBalance;
-      const currencyCode = this.balanceData?.amount?.currencyCode || 'CAD';
-      const amountInDollars = balanceToShow / 100;
-      const formattedAmount = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currencyCode,
-      }).format(amountInDollars);
+      if (balanceResult && balanceResult.status.state === 'Valid' && balanceResult.amount) {
+        // If balance is valid, submit the payment with the full balance
+        await this.submit({ amount: balanceResult.amount });
 
-      // Show full balance initially, then 0 after applying
-      const amountFieldValue = resetAmountField ? '0' : amountInDollars.toString();
-
-      balanceContainer.innerHTML = `
-        <div class="${inputFieldStyles.balanceResult}">
-          <div class="${inputFieldStyles.amountInputWrapper}">
-            <span class="${inputFieldStyles.currencySymbol}">$</span>
-            <input
-              type="number"
-              id="${fieldIds.amount}"
-              class="${inputFieldStyles.amountInput}"
-              value="${amountFieldValue}"
-              max="${amountInDollars}"
-              step="0.01"
-              placeholder="0.00"
-            />
-          </div>
-          <div class="${inputFieldStyles.balanceMessage}">
-            <p>Your current balance is: <strong>${formattedAmount}</strong>. Please enter the amount you want to redeem and select Apply below.</p>
-          </div>
-        </div>
-      `;
-      balanceContainer.style.display = 'block';
-    }
-
-    if (applyButton) {
-      applyButton.disabled = false;
-      applyButton.classList.remove(inputFieldStyles.disabled);
+        // Close modal on success
+        this.handleClose();
+      }
+    } catch (err) {
+      // Error handling is done in balance() and submit()
+      console.error('Error adding gift card:', err);
+    } finally {
+      this.isSubmitting = false;
+      const submitButton = document.getElementById('add-giftcard-button') as HTMLButtonElement;
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Add Gift Card';
+      }
     }
   }
 
@@ -204,32 +169,8 @@ export class FormComponent extends DefaultComponent {
       const giftCardCode = getInput(fieldIds.code).value.replace(/\s/g, '');
       const giftCardPin = getInput(fieldIds.pin).value.replace(/\s/g, '');
 
-      // Get amount from input field if balance was loaded
-      let amountToRedeem = params.amount;
-
-      if (this.balanceData && this.balanceData.amount) {
-        const amountInput = getInput(fieldIds.amount) as HTMLInputElement;
-        if (amountInput && amountInput.value) {
-          const amountInDollars = parseFloat(amountInput.value);
-
-          // Validate amount is not 0 or negative
-          if (amountInDollars <= 0) {
-            showError(fieldIds.amount, 'Please enter an amount greater than 0');
-            return;
-          }
-
-          amountToRedeem = {
-            centAmount: Math.round(amountInDollars * 100),
-            currencyCode: this.balanceData.amount.currencyCode,
-          };
-        } else {
-          showError(fieldIds.amount, 'Please enter an amount to redeem');
-          return;
-        }
-      }
-
       const requestBody = {
-        amount: amountToRedeem,
+        amount: params.amount,
         code: giftCardCode,
         securityCode: giftCardPin,
       };
@@ -253,14 +194,6 @@ export class FormComponent extends DefaultComponent {
         throw redeemResult;
       }
 
-      // Update remaining balance (deduct the applied amount from UI display)
-      if (amountToRedeem) {
-        this.remainingBalance = this.remainingBalance - amountToRedeem.centAmount;
-
-        // Re-render the balance display with updated remaining balance and reset amount field to 0
-        this.renderBalanceResult(true); // true = reset amount field to 0
-      }
-
       const paymentResult: PaymentResult = {
         isSuccess: redeemResult.isSuccess,
         paymentReference: redeemResult.paymentReference,
@@ -269,6 +202,7 @@ export class FormComponent extends DefaultComponent {
       this.baseOptions.onComplete(paymentResult);
     } catch (err) {
       this.baseOptions.onError(err);
+      throw err;
     }
   }
 
@@ -276,25 +210,29 @@ export class FormComponent extends DefaultComponent {
     document.querySelector(selector).insertAdjacentHTML('afterbegin', this._getField());
 
     // Add event listeners
-    const checkbox = document.getElementById(fieldIds.checkbox) as HTMLInputElement;
-    const showButton = document.getElementById('pin-show-button');
-    const loadBalanceButton = document.getElementById('load-balance-button');
-    const applyButton = document.getElementById('apply-button');
+    const closeButton = document.getElementById('giftcard-close-button');
+    const cancelButton = document.getElementById('giftcard-cancel-button');
+    const addButton = document.getElementById('add-giftcard-button');
+    const modalBackdrop = document.getElementById('giftcard-modal-backdrop');
 
-    if (checkbox) {
-      checkbox.addEventListener('change', this.handleCheckboxChange);
+    if (closeButton) {
+      closeButton.addEventListener('click', this.handleClose);
     }
 
-    if (showButton) {
-      showButton.addEventListener('click', this.togglePinVisibility);
+    if (cancelButton) {
+      cancelButton.addEventListener('click', this.handleCancel);
     }
 
-    if (loadBalanceButton) {
-      loadBalanceButton.addEventListener('click', this.handleLoadBalance);
+    if (addButton) {
+      addButton.addEventListener('click', this.handleAddGiftCard);
     }
 
-    if (applyButton) {
-      applyButton.addEventListener('click', () => this.submit({}));
+    if (modalBackdrop) {
+      modalBackdrop.addEventListener('click', (e) => {
+        if (e.target === modalBackdrop) {
+          this.handleClose();
+        }
+      });
     }
 
     this.giftcardOptions
@@ -308,91 +246,67 @@ export class FormComponent extends DefaultComponent {
 
   private _getField() {
     return `
-      <div class="${inputFieldStyles.giftCardWrapper}">
-        <!-- Checkbox Section -->
-        <div class="${inputFieldStyles.checkboxSection}">
-          <input
-            type="checkbox"
-            id="${fieldIds.checkbox}"
-            class="${inputFieldStyles.checkbox}"
-          />
-          <label for="${fieldIds.checkbox}" class="${inputFieldStyles.checkboxLabel}">
-            <span class="${inputFieldStyles.checkboxIcon}"></span>
-            <span class="${inputFieldStyles.title}">Redeem a Gift Card</span>
-          </label>
-        </div>
-
-        <!-- Form Content (Hidden by default) -->
-        <div id="giftcard-form-content" class="${inputFieldStyles.formContent}" style="display: none;">
-          <!-- Gift Card Balance Section -->
-          <div class="${inputFieldStyles.sectionHeader}">
-            <h3 class="${inputFieldStyles.sectionTitle}">
-              Gift Card Balance
-              <span class="${inputFieldStyles.infoIcon}">ⓘ</span>
-            </h3>
+      <div id="giftcard-modal" class="${inputFieldStyles.modal}">
+        <div id="giftcard-modal-backdrop" class="${inputFieldStyles.modalBackdrop}"></div>
+        <div class="${inputFieldStyles.modalContent}">
+          <div class="${inputFieldStyles.modalHeader}">
+            <h2 class="${inputFieldStyles.modalTitle}">Add a Gift Card</h2>
+            <button
+              type="button"
+              id="giftcard-close-button"
+              class="${inputFieldStyles.closeButton}"
+              aria-label="Close"
+            >
+              ×
+            </button>
           </div>
 
-          <!-- Help Text -->
-          <p class="${inputFieldStyles.helpText}">
-            For gift cards without 16 digits, please contact
-            <a href="#" class="${inputFieldStyles.link}">Customer Care</a>.
-          </p>
-
-          <!-- Input Fields Row -->
-          <div class="${inputFieldStyles.inputRow}">
-            <!-- Card Number Input -->
+          <div class="${inputFieldStyles.modalBody}">
             <div class="${inputFieldStyles.inputGroup}">
+              <label for="${fieldIds.code}" class="${inputFieldStyles.inputLabel}">
+                Gift card code
+              </label>
               <input
                 type="text"
                 id="${fieldIds.code}"
                 class="${inputFieldStyles.input}"
-                placeholder="Enter 16 Digit Card Number"
-                maxlength="16"
+                placeholder=""
+                autocomplete="off"
               />
               <div id="giftcard-code-error" class="${inputFieldStyles.errorField}" role="alert"></div>
             </div>
 
-            <!-- PIN Input with Show Button -->
-            <div class="${inputFieldStyles.inputGroup} ${inputFieldStyles.pinGroup}">
+            <div class="${inputFieldStyles.inputGroup}">
+              <label for="${fieldIds.pin}" class="${inputFieldStyles.inputLabel}">
+                Pin Number
+              </label>
               <input
-                type="password"
+                type="text"
                 id="${fieldIds.pin}"
                 class="${inputFieldStyles.input}"
-                placeholder="Enter Gift Card PIN"
+                placeholder=""
                 autocomplete="off"
               />
-              <button
-                type="button"
-                id="pin-show-button"
-                class="${inputFieldStyles.showButton}"
-              >
-                Show
-              </button>
               <div id="giftcard-pin-error" class="${inputFieldStyles.errorField}" role="alert"></div>
             </div>
-
-            <!-- Load Balance Button -->
-            <button
-              type="button"
-              id="load-balance-button"
-              class="${inputFieldStyles.loadBalanceButton}"
-            >
-              Load Balance
-            </button>
           </div>
 
-          <!-- Balance Result Container (Hidden until balance is loaded) -->
-          <div id="balance-result-container" class="${inputFieldStyles.balanceResultContainer}" style="display: none;"></div>
-
-          <!-- Apply Button -->
-          <button
-            type="button"
-            id="apply-button"
-            class="${inputFieldStyles.applyButton} ${inputFieldStyles.disabled}"
-            disabled
-          >
-            Apply
-          </button>
+          <div class="${inputFieldStyles.modalFooter}">
+            <button
+              type="button"
+              id="add-giftcard-button"
+              class="${inputFieldStyles.addButton}"
+            >
+              Add Gift Card
+            </button>
+            <button
+              type="button"
+              id="giftcard-cancel-button"
+              class="${inputFieldStyles.cancelButton}"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     `;
