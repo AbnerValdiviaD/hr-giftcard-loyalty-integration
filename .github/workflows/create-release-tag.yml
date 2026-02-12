@@ -1,0 +1,71 @@
+name: Create Release Tag with Build Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.1.7)'
+        required: true
+        type: string
+
+jobs:
+  build-and-tag:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            processor/package-lock.json
+            enabler/package-lock.json
+
+      - name: Install processor dependencies
+        run: |
+          cd processor
+          npm ci
+
+      - name: Install enabler dependencies
+        run: |
+          cd enabler
+          npm ci
+
+      - name: Build processor
+        run: |
+          cd processor
+          npm run build
+
+      - name: Build enabler
+        run: |
+          cd enabler
+          npm run build
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit build artifacts
+        run: |
+          git add -f processor/dist/ enabler/public/
+          git diff --staged --quiet || git commit -m "build: add build artifacts for ${{ inputs.version }}"
+
+      - name: Create and push tag
+        run: |
+          git tag -a ${{ inputs.version }} -m "Release ${{ inputs.version }}"
+          git push origin ${{ inputs.version }}
+
+      - name: Push commit if created
+        run: |
+          git push origin main || echo "No commits to push"
