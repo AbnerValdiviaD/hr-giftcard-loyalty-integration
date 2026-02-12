@@ -1,5 +1,5 @@
 {
-  "name": "hr-giftcard-integration-ct",
+  "name": "giftcard-integration-template",
   "version": "0.2.0",
   "description": "Harry Rosen Gift Card Integration for commercetools",
   "main": "dist/server.js",

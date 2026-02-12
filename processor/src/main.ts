@@ -7,9 +7,10 @@ import { setupFastify } from './server/server';
   const server = await setupFastify();
 
   const HOST = '0.0.0.0';
+  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8080;
   try {
     await server.listen({
-      port: 8081,
+      port: PORT,
       host: HOST,
     });
   } catch (err) {
