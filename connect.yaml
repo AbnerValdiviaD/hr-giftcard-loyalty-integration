@@ -4,6 +4,10 @@ deployAs:
   - name: processor
     applicationType: service
     endpoint: /
+    properties:
+      healthCheckUri: /health
+      readinessUri: /ready
+      livenessUri: /live
     configuration:
       standardConfiguration:
         - key: CTP_PROJECT_KEY
