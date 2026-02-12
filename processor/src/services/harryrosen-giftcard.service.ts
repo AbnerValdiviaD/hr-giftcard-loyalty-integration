@@ -190,62 +190,107 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
   }
 
   /**
+   * Helper: Validate card inputs for balance check
+   */
+  private validateBalanceInputs(code: string, securityCode?: string): BalanceResponseSchemaDTO | null {
+    if (!securityCode) {
+      return {
+        status: {
+          state: 'GenericError',
+          errors: [{ code: 'MissingSecurityCode', message: 'Security code (PIN) is required' }],
+        },
+      };
+    }
+
+    const panValidation = this.validatePAN(code);
+    if (!panValidation.valid) {
+      return {
+        status: {
+          state: 'GenericError',
+          errors: [{ code: 'InvalidCardNumber', message: panValidation.error || 'Invalid gift card number' }],
+        },
+      };
+    }
+
+    const pinValidation = this.validatePIN(securityCode);
+    if (!pinValidation.valid) {
+      return {
+        status: {
+          state: 'GenericError',
+          errors: [{ code: 'InvalidPIN', message: pinValidation.error || 'Invalid PIN' }],
+        },
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Helper: Handle balance check errors
+   */
+  private handleBalanceError(error: any): BalanceResponseSchemaDTO {
+    log.error('Error checking balance', { error: error.message });
+
+    if (error.response?.status === 401) {
+      return {
+        status: {
+          state: 'GenericError',
+          errors: [{ code: 'Unauthorized', message: 'Invalid API credentials' }],
+        },
+      };
+    }
+
+    if (error.response?.status === 404) {
+      return {
+        status: {
+          state: 'NotFound',
+          errors: [{ code: 'NotFound', message: 'Gift card not found' }],
+        },
+      };
+    }
+
+    const responseData = error.response?.data;
+    if (typeof responseData === 'string' && responseData.toLowerCase().includes('invalid')) {
+      return {
+        status: {
+          state: 'NotFound',
+          errors: [{ code: 'InvalidCardOrPin', message: 'Invalid gift card number or PIN' }],
+        },
+      };
+    }
+
+    if (error.message?.includes('expired')) {
+      return {
+        status: {
+          state: 'Expired',
+          errors: [{ code: 'Expired', message: 'Gift card has expired' }],
+        },
+      };
+    }
+
+    return {
+      status: {
+        state: 'GenericError',
+        errors: [{ code: 'GenericError', message: 'Failed to check gift card balance' }],
+      },
+    };
+  }
+
+  /**
    * Check gift card balance
    */
   async balance(code: string, securityCode?: string): Promise<BalanceResponseSchemaDTO> {
     try {
       log.info('Checking balance for gift card', { code: '****' + code.slice(-4) });
 
-      // Validate security code is provided
-      if (!securityCode) {
-        return {
-          status: {
-            state: 'GenericError',
-            errors: [
-              {
-                code: 'MissingSecurityCode',
-                message: 'Security code (PIN) is required',
-              },
-            ],
-          },
-        };
-      }
-
-      // Validate PAN
-      const panValidation = this.validatePAN(code);
-      if (!panValidation.valid) {
-        return {
-          status: {
-            state: 'GenericError',
-            errors: [
-              {
-                code: 'InvalidCardNumber',
-                message: panValidation.error || 'Invalid gift card number',
-              },
-            ],
-          },
-        };
-      }
-
-      // Validate PIN
-      const pinValidation = this.validatePIN(securityCode);
-      if (!pinValidation.valid) {
-        return {
-          status: {
-            state: 'GenericError',
-            errors: [
-              {
-                code: 'InvalidPIN',
-                message: pinValidation.error || 'Invalid PIN',
-              },
-            ],
-          },
-        };
+      const validationError = this.validateBalanceInputs(code, securityCode);
+      if (validationError) {
+        return validationError;
       }
 
       const response = await this.harryRosenClient.balance({
         pan: code,
-        pin: securityCode,
+        pin: securityCode!, // Validated above, guaranteed to be defined
       });
 
       // Harry Rosen returns amount in dollars, convert to cents
@@ -297,79 +342,139 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         },
       };
     } catch (error: any) {
-      log.error('Error checking balance', { error: error.message });
+      return this.handleBalanceError(error);
+    }
+  }
 
-      // Map HTTP errors according to Harry Rosen API documentation
-      if (error.response?.status === 401) {
-        return {
-          status: {
-            state: 'GenericError',
-            errors: [
-              {
-                code: 'Unauthorized',
-                message: 'Invalid API credentials',
-              },
-            ],
-          },
-        };
-      }
-
-      if (error.response?.status === 404) {
-        return {
-          status: {
-            state: 'NotFound',
-            errors: [
-              {
-                code: 'NotFound',
-                message: 'Gift card not found',
-              },
-            ],
-          },
-        };
-      }
-
-      // Check for "Invalid Card or pin" message in response
-      const responseData = error.response?.data;
-      if (typeof responseData === 'string' && responseData.toLowerCase().includes('invalid')) {
-        return {
-          status: {
-            state: 'NotFound',
-            errors: [
-              {
-                code: 'InvalidCardOrPin',
-                message: 'Invalid gift card number or PIN',
-              },
-            ],
-          },
-        };
-      }
-
-      if (error.message?.includes('expired')) {
-        return {
-          status: {
-            state: 'Expired',
-            errors: [
-              {
-                code: 'Expired',
-                message: 'Gift card has expired',
-              },
-            ],
-          },
-        };
-      }
-
+  /**
+   * Helper: Validate redeem request inputs
+   */
+  private validateRedeemInputs(request: RedeemRequestDTO): RedeemResponseDTO | null {
+    const panValidation = this.validatePAN(request.code);
+    if (!panValidation.valid) {
       return {
-        status: {
-          state: 'GenericError',
-          errors: [
-            {
-              code: 'GenericError',
-              message: error.message || 'Failed to check balance',
-            },
-          ],
-        },
+        isSuccess: false,
+        errorMessage: panValidation.error || 'Invalid gift card number',
       };
     }
+
+    if (!request.securityCode) {
+      return {
+        isSuccess: false,
+        errorMessage: 'PIN is required',
+      };
+    }
+
+    const pinValidation = this.validatePIN(request.securityCode);
+    if (!pinValidation.valid) {
+      return {
+        isSuccess: false,
+        errorMessage: pinValidation.error || 'Invalid PIN',
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Helper: Validate balance and amount
+   */
+  private async validateBalanceAndAmount(
+    code: string,
+    securityCode: string,
+    requestedAmount: { centAmount: number; currencyCode: string }
+  ): Promise<RedeemResponseDTO | null> {
+    const balanceResult = await this.balance(code, securityCode);
+
+    if (balanceResult.status.state !== 'Valid') {
+      return {
+        isSuccess: false,
+        errorMessage: balanceResult.status.errors?.[0]?.message || 'Invalid gift card',
+      };
+    }
+
+    if (!balanceResult.amount || balanceResult.amount.centAmount < requestedAmount.centAmount) {
+      return {
+        isSuccess: false,
+        errorMessage: 'Insufficient gift card balance',
+      };
+    }
+
+    log.info('Balance check successful - creating pending payment', {
+      code: '****' + code.slice(-4),
+      availableBalance: balanceResult.amount.centAmount,
+      requestedAmount: requestedAmount.centAmount,
+    });
+
+    return null;
+  }
+
+  /**
+   * Helper: Check for duplicate payment and log if found
+   */
+  private async checkForDuplicatePayment(cart: any, giftCardCode: string): Promise<void> {
+    const existingPayments = cart.paymentInfo?.payments || [];
+
+    for (const paymentRef of existingPayments) {
+      try {
+        const existingPayment = await this.ctPaymentService.getPayment({ id: paymentRef.id });
+        const existingCode = existingPayment.custom?.fields?.giftCardCode;
+
+        if (existingCode === giftCardCode) {
+          log.info('Gift card already applied - creating additional payment', {
+            existingPaymentId: existingPayment.id,
+            giftCardCode: '****' + giftCardCode.slice(-4),
+          });
+          break;
+        }
+      } catch (error) {
+        log.warn('Failed to check existing payment', { error, paymentId: paymentRef.id });
+      }
+    }
+  }
+
+  /**
+   * Helper: Create payment and add to cart
+   */
+  private async createAndAddPayment(
+    cart: any,
+    request: RedeemRequestDTO
+  ): Promise<RedeemResponseDTO> {
+    const payment = await this.ctPaymentService.createPayment({
+      amountPlanned: {
+        centAmount: request.amount.centAmount,
+        currencyCode: request.amount.currencyCode,
+      },
+      paymentMethodInfo: {
+        paymentInterface: 'harryrosen-giftcard',
+        method: 'giftcard',
+      },
+      custom: {
+        type: {
+          typeId: 'type',
+          key: 'customPaymentFields',
+        },
+        fields: {
+          giftCardCode: request.code,
+          giftCardPin: request.securityCode,
+        },
+      },
+    });
+
+    await this.ctCartService.addPayment({
+      resource: { id: cart.id, version: cart.version },
+      paymentId: payment.id,
+    });
+
+    log.info('Payment authorized and added to cart', {
+      paymentId: payment.id,
+      note: 'Actual redemption will happen during order creation',
+    });
+
+    return {
+      isSuccess: true,
+      paymentReference: payment.id,
+    };
   }
 
   /**
@@ -395,149 +500,31 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
    */
   async redeem(request: RedeemRequestDTO): Promise<RedeemResponseDTO> {
     try {
-      log.info('Authorizing gift card payment (checking balance only)', {
+      log.info('Authorizing gift card payment', {
         code: '****' + request.code.slice(-4),
         amount: request.amount,
       });
 
-      // Validate PAN
-      const panValidation = this.validatePAN(request.code);
-      if (!panValidation.valid) {
-        return {
-          isSuccess: false,
-          errorMessage: panValidation.error || 'Invalid gift card number',
-        };
+      const validationError = this.validateRedeemInputs(request);
+      if (validationError) {
+        return validationError;
       }
 
-      // Validate PIN
-      if (!request.securityCode) {
-        return {
-          isSuccess: false,
-          errorMessage: 'PIN is required',
-        };
-      }
-
-      const pinValidation = this.validatePIN(request.securityCode);
-      if (!pinValidation.valid) {
-        return {
-          isSuccess: false,
-          errorMessage: pinValidation.error || 'Invalid PIN',
-        };
+      const balanceError = await this.validateBalanceAndAmount(
+        request.code,
+        request.securityCode!,
+        request.amount
+      );
+      if (balanceError) {
+        return balanceError;
       }
 
       const cartId = getCartIdFromContext();
       const cart = await this.ctCartService.getCart({ id: cartId });
 
-      // STEP 1: Check balance (no redemption yet!)
-      const balanceResult = await this.balance(request.code, request.securityCode);
+      await this.checkForDuplicatePayment(cart, request.code);
 
-      if (balanceResult.status.state !== 'Valid') {
-        return {
-          isSuccess: false,
-          errorMessage: balanceResult.status.errors?.[0]?.message || 'Invalid gift card',
-        };
-      }
-
-      // Verify sufficient funds
-      if (!balanceResult.amount || balanceResult.amount.centAmount < request.amount.centAmount) {
-        return {
-          isSuccess: false,
-          errorMessage: 'Insufficient gift card balance',
-        };
-      }
-
-      log.info('Balance check successful - creating pending payment', {
-        code: '****' + request.code.slice(-4),
-        availableBalance: balanceResult.amount.centAmount,
-        requestedAmount: request.amount.centAmount,
-      });
-
-      // STEP 2: Check if this gift card is already applied - if so, sum up the amounts
-      const existingPayments = cart.paymentInfo?.payments || [];
-
-      for (const paymentRef of existingPayments) {
-        try {
-          const existingPayment = await this.ctPaymentService.getPayment({
-            id: paymentRef.id
-          });
-
-          // Check if this payment is from the same gift card
-          const existingCode = existingPayment.custom?.fields?.giftCardCode;
-          if (existingCode === request.code) {
-            // Sum up: existing amount + new amount
-            const existingAmount = existingPayment.amountPlanned.centAmount;
-            const newTotalAmount = existingAmount + request.amount.centAmount;
-
-            log.info('Gift card already applied - will create new payment with summed amount', {
-              existingPaymentId: existingPayment.id,
-              existingAmount,
-              addedAmount: request.amount.centAmount,
-              newTotalAmount,
-            });
-
-            // SDK doesn't support updating amountPlanned, so we:
-            // 1. Note the sum for the NEW payment we'll create
-            // 2. Let the old payment remain (will have 2 payments, but that's OK)
-            // 3. During capture, both will be processed
-
-            // Continue to create new payment with the requested amount
-            // Both payments will be captured separately
-            log.info('Creating additional payment (multiple payments from same card allowed)', {
-              giftCardCode: '****' + request.code.slice(-4),
-              newPaymentAmount: request.amount.centAmount,
-            });
-
-            // Don't return early - let it create a new payment below
-            break;
-          }
-        } catch (error) {
-          log.warn('Failed to check/update existing payment', {
-            error,
-            paymentId: paymentRef.id
-          });
-        }
-      }
-
-      // STEP 3: Create new payment in commercetools (PENDING state - no transaction yet)
-      // Only reached if this gift card is not already applied
-      // This is required for commercetools Checkout to show the payment and trigger capture
-      const payment = await this.ctPaymentService.createPayment({
-        amountPlanned: {
-          centAmount: request.amount.centAmount,
-          currencyCode: request.amount.currencyCode,
-        },
-        paymentMethodInfo: {
-          paymentInterface: 'harryrosen-giftcard',
-          method: 'giftcard',
-        },
-        // Store card details in custom fields for later use in capturePayment()
-        custom: {
-          type: {
-            typeId: 'type',
-            key: 'customPaymentFields',
-          },
-          fields: {
-            giftCardCode: request.code,
-            giftCardPin: request.securityCode,
-          },
-        },
-      });
-
-      // STEP 4: Add payment to cart
-      await this.ctCartService.addPayment({
-        resource: { id: cart.id, version: cart.version },
-        paymentId: payment.id,
-      });
-
-      log.info('Payment authorized and added to cart (no funds captured yet)', {
-        paymentId: payment.id,
-        note: 'Actual redemption will happen during order creation via capturePayment()'
-      });
-
-      return {
-        isSuccess: true,
-        paymentReference: payment.id,
-      };
+      return await this.createAndAddPayment(cart, request);
     } catch (error: any) {
       log.error('Error authorizing gift card payment', { error: error.message });
       return {

@@ -9,9 +9,9 @@
 node_modules/
 
 # Build outputs
-# Note: dist/ and build/ are committed for commercetools Connect deployments
-# dist/
-# build/
+# Note: GitHub Actions builds these for tags, no need in main branch
+dist/
+build/
 *.log
 
 # IDE
