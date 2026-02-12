@@ -1,11 +1,14 @@
 name: Create Release Tag with Build Artifacts
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g., v0.1.7)'
-        required: true
+        description: 'Version tag (e.g., v0.1.7) - leave empty for auto-increment'
+        required: false
         type: string
 
 jobs:
@@ -21,6 +24,30 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Get latest tag and increment patch version
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.6")
+            echo "Latest tag: $LATEST_TAG"
+
+            # Extract version numbers (assuming format v0.1.6)
+            VERSION_NUM=$(echo $LATEST_TAG | sed 's/v//')
+            MAJOR=$(echo $VERSION_NUM | cut -d. -f1)
+            MINOR=$(echo $VERSION_NUM | cut -d. -f2)
+            PATCH=$(echo $VERSION_NUM | cut -d. -f3)
+
+            # Increment patch version
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+
+            echo "New version: $NEW_VERSION"
+            echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -59,12 +86,12 @@ jobs:
       - name: Commit build artifacts
         run: |
           git add -f processor/dist/ enabler/public/
-          git diff --staged --quiet || git commit -m "build: add build artifacts for ${{ inputs.version }}"
+          git diff --staged --quiet || git commit -m "build: add build artifacts for ${{ steps.version.outputs.VERSION }}"
 
       - name: Create and push tag
         run: |
-          git tag -a ${{ inputs.version }} -m "Release ${{ inputs.version }}"
-          git push origin ${{ inputs.version }}
+          git tag -a ${{ steps.version.outputs.VERSION }} -m "Release ${{ steps.version.outputs.VERSION }}"
+          git push origin ${{ steps.version.outputs.VERSION }}
 
       - name: Push commit if created
         run: |
