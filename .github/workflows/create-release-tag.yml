@@ -28,9 +28,13 @@ jobs:
       - name: Check commit message
         id: check_commit
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          COMMIT_MSG="$(git log -1 --pretty=%B)"
           echo "Commit message: $COMMIT_MSG"
+          {
+            echo "message<<EOF"
+            echo "$COMMIT_MSG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Determine version
         id: version
