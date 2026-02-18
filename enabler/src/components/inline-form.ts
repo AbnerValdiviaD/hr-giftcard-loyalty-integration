@@ -79,7 +79,6 @@ class InlineForm implements GiftCardComponent {
               maxlength="16"
             />
             <div class="${styles.pinGroup}">
-              <span class="${styles.lockIcon}" id="lock-icon">🔒</span>
               <input
                 type="password"
                 id="pin"
@@ -87,16 +86,14 @@ class InlineForm implements GiftCardComponent {
                 placeholder="Enter Gift Card PIN"
                 maxlength="4"
               />
-              <span class="${styles.pinInfoIcon}" id="pin-info-icon">ⓘ</span>
               <button type="button" class="${styles.showButton}" id="show-pin">
                 Show
               </button>
             </div>
+            <button type="button" class="${styles.loadBalanceButton}" id="load-balance">
+              Load Balance
+            </button>
           </div>
-
-          <button type="button" class="${styles.loadBalanceButton}" id="load-balance">
-            Load Balance
-          </button>
 
           <div class="${styles.balanceSection}" id="balance-section" style="display: none;">
             <div class="${styles.amountInputWrapper}">
@@ -158,20 +155,6 @@ class InlineForm implements GiftCardComponent {
       }
     });
 
-    // PIN input focus - show lock and info icons
-    const lockIcon = document.getElementById('lock-icon');
-    const pinInfoIcon = document.getElementById('pin-info-icon');
-
-    this.pinInput?.addEventListener('focus', () => {
-      if (lockIcon) lockIcon.style.opacity = '1';
-      if (pinInfoIcon) pinInfoIcon.style.opacity = '1';
-    });
-
-    this.pinInput?.addEventListener('blur', () => {
-      if (lockIcon) lockIcon.style.opacity = '0';
-      if (pinInfoIcon) pinInfoIcon.style.opacity = '0';
-    });
-
     // Load Balance button
     this.loadBalanceButton?.addEventListener('click', () => this.handleLoadBalance());
 
@@ -204,7 +187,6 @@ class InlineForm implements GiftCardComponent {
     // Info icon click handlers
     const mainInfoIcon = document.getElementById('main-info-icon');
     mainInfoIcon?.addEventListener('click', () => this.showTooltip());
-    pinInfoIcon?.addEventListener('click', () => this.showTooltip());
 
     // Tooltip close handlers
     const tooltipClose = document.getElementById('tooltip-close');
@@ -313,12 +295,14 @@ class InlineForm implements GiftCardComponent {
         }
       });
 
+      console.log('Gift card redeemed successfully:', result);
+
       // Update balance after successful apply
       this.currentBalance = this.currentBalance - amount;
 
       // Update balance message
       if (this.balanceMessage) {
-        this.balanceMessage.innerHTML = `Your current balance is: <strong>$${Math.floor(this.currentBalance)}</strong>. Please enter the amount you want to redeem and select Apply below.`;
+        this.balanceMessage.innerHTML = `Gift card applied! Remaining balance: <strong>$${Math.floor(this.currentBalance)}</strong>`;
       }
 
       // Reset amount input to 0
@@ -331,9 +315,11 @@ class InlineForm implements GiftCardComponent {
         this.applyButton.disabled = true;
       }
 
-      if (this.baseOptions.onComplete) {
-        this.baseOptions.onComplete(result);
-      }
+      // DON'T call onComplete to prevent triggering order creation in checkout SDK
+      // The checkout SDK should handle order creation through its own flow
+      // if (this.baseOptions.onComplete) {
+      //   this.baseOptions.onComplete(result);
+      // }
     } catch (error: any) {
       alert('Error applying gift card: ' + error.message);
       if (this.baseOptions.onError) {

@@ -105,12 +105,13 @@
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 
   @media screen and (max-width: 768px) {
     flex-direction: column;
     align-items: stretch;
     gap: 16px;
+    margin-bottom: 0;
   }
 }
 
@@ -175,12 +176,10 @@
 }
 
 .pinInput {
-  padding-left: 36px;
-  padding-right: 90px;
+  padding-right: 70px;
 
   &:focus {
-    padding-left: 35px;
-    padding-right: 89px;
+    padding-right: 69px;
   }
 }
 
@@ -208,14 +207,14 @@
 
 .showButton {
   position: absolute;
-  right: 12px;
+  right: 8px;
   background: none;
   border: none;
   color: #1F1E1A;
   font-size: 12px;
   font-weight: 400;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 6px 10px;
   height: 28px;
   border-radius: 3px;
 
@@ -229,8 +228,6 @@
 }
 
 .loadBalanceButton {
-  width: 100%;
-  height: 48px;
   background-color: #000000;
   color: #ffffff;
   border: none;
@@ -238,8 +235,14 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  margin-bottom: 20px;
   transition: background-color 0.2s;
+  white-space: nowrap;
+
+  // Desktop: auto width, inline with inputs
+  width: auto;
+  height: 46px;
+  padding: 0 24px;
+  flex-shrink: 0;
 
   &:hover:not(:disabled) {
     background-color: #333333;
@@ -256,8 +259,10 @@
   }
 
   @media screen and (max-width: 768px) {
+    width: 100%;
     height: 52px;
     font-size: 16px;
+    margin-bottom: 20px;
   }
 }
 
