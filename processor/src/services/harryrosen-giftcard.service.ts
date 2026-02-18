@@ -6,10 +6,7 @@ import {
   statusHandler,
 } from '@commercetools/connect-payments-sdk';
 import { AbstractGiftCardService } from './abstract-giftcard.service';
-import {
-  HarryRosenGiftCardAPI,
-  HarryRosenGiftCardClient,
-} from '../clients/harryrosen-giftcard.client';
+import { HarryRosenGiftCardAPI, HarryRosenGiftCardClient } from '../clients/harryrosen-giftcard.client';
 import { getConfig } from '../config/config';
 import { appLogger, paymentSDK } from '../payment-sdk';
 import {
@@ -20,15 +17,12 @@ import {
   PaymentProviderModificationResponse,
   StatusResponse,
 } from './types/operation.type';
-import {
-  BalanceResponseSchemaDTO,
-  RedeemResponseDTO,
-  RedeemRequestDTO,
-} from '../dtos/giftcard.dto';
+import { BalanceResponseSchemaDTO, RedeemResponseDTO, RedeemRequestDTO } from '../dtos/giftcard.dto';
 import { PaymentModificationStatus } from '../dtos/operations/payment-intents.dto';
 import { getCartIdFromContext } from '../libs/fastify/context/context';
 import packageJSON from '../../package.json';
 import { log } from '../libs/logger';
+import { EncryptionService } from '../libs/crypto';
 
 export type HarryRosenGiftCardServiceOptions = {
   ctCartService: CommercetoolsCartService;
@@ -42,6 +36,7 @@ export type HarryRosenGiftCardServiceOptions = {
  */
 export class HarryRosenGiftCardService extends AbstractGiftCardService {
   private harryRosenClient: HarryRosenGiftCardClient;
+  private encryptionService: EncryptionService;
 
   constructor(opts: HarryRosenGiftCardServiceOptions) {
     super(opts.ctCartService, opts.ctPaymentService, opts.ctOrderService);
@@ -52,14 +47,61 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       transactionBaseUrl: config.harryRosenTransactionUrl,
       username: config.harryRosenUser,
       password: config.harryRosenPassword,
+      apiKey: config.harryRosenGiftcardApiKey,
       currency: config.mockConnectorCurrency,
     });
+
+    // Initialize encryption service
+    if (!config.encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required');
+    }
+    this.encryptionService = new EncryptionService(config.encryptionKey);
 
     log.info('HarryRosenGiftCardService initialized v4', {
       balanceBaseUrl: config.harryRosenBalanceUrl,
       transactionBaseUrl: config.harryRosenTransactionUrl,
       currency: config.mockConnectorCurrency,
     });
+  }
+
+  /**
+   * Extract client IP address from Fastify request
+   * Checks X-Forwarded-For header (for proxy/load balancer) first, then request.ip
+   */
+  private extractClientIp(request: any): string {
+    if (!request) return 'unknown';
+
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (forwardedFor) {
+      return forwardedFor.split(',')[0].trim();
+    }
+
+    const realIp = request.headers['x-real-ip'];
+    if (realIp) return realIp;
+
+    return request.ip || 'unknown';
+  }
+
+  /**
+   * Get current date in YYYYMMDD format
+   */
+  private getTransactionDate(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+  }
+
+  /**
+   * Get current time in HHMMSS format
+   */
+  private getTransactionTime(): string {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${hours}${minutes}${seconds}`;
   }
 
   /**
@@ -382,7 +424,8 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
   private async validateBalanceAndAmount(
     code: string,
     securityCode: string,
-    requestedAmount: { centAmount: number; currencyCode: string }
+    requestedAmount: { centAmount: number; currencyCode: string },
+    alreadyAppliedAmount: number = 0,
   ): Promise<RedeemResponseDTO | null> {
     const balanceResult = await this.balance(code, securityCode);
 
@@ -393,26 +436,35 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       };
     }
 
-    if (!balanceResult.amount || balanceResult.amount.centAmount < requestedAmount.centAmount) {
+    // Calculate total amount including what's already applied
+    const newTotal = alreadyAppliedAmount + requestedAmount.centAmount;
+
+    if (!balanceResult.amount || balanceResult.amount.centAmount < newTotal) {
+      const balanceInDollars = (balanceResult.amount?.centAmount || 0) / 100;
+      const totalInDollars = newTotal / 100;
+
       return {
         isSuccess: false,
-        errorMessage: 'Insufficient gift card balance',
+        errorMessage: `Insufficient balance. Card has $${balanceInDollars.toFixed(2)}, but trying to use $${totalInDollars.toFixed(2)} total.`,
       };
     }
 
-    log.info('Balance check successful - creating pending payment', {
+    log.info('Balance check successful - proceeding with payment', {
       code: '****' + code.slice(-4),
       availableBalance: balanceResult.amount.centAmount,
-      requestedAmount: requestedAmount.centAmount,
+      alreadyApplied: alreadyAppliedAmount,
+      additionalAmount: requestedAmount.centAmount,
+      newTotal: newTotal,
     });
 
     return null;
   }
 
   /**
-   * Helper: Check for duplicate payment and log if found
+   * Helper: Find existing payment for the same gift card without transactions
+   * Returns the payment if found, or null if not found
    */
-  private async checkForDuplicatePayment(cart: any, giftCardCode: string): Promise<void> {
+  private async findExistingPaymentForCard(cart: any, giftCardCode: string): Promise<any | null> {
     const existingPayments = cart.paymentInfo?.payments || [];
 
     for (const paymentRef of existingPayments) {
@@ -420,26 +472,89 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         const existingPayment = await this.ctPaymentService.getPayment({ id: paymentRef.id });
         const existingCode = existingPayment.custom?.fields?.giftCardCode;
 
+        // Check if same gift card and has no transactions (not yet captured)
         if (existingCode === giftCardCode) {
-          log.info('Gift card already applied - creating additional payment', {
-            existingPaymentId: existingPayment.id,
-            giftCardCode: '****' + giftCardCode.slice(-4),
-          });
-          break;
+          const hasTransactions = existingPayment.transactions && existingPayment.transactions.length > 0;
+
+          if (!hasTransactions) {
+            log.info('Found existing payment for same gift card', {
+              paymentId: existingPayment.id,
+              currentAmount: existingPayment.amountPlanned.centAmount,
+              giftCardCode: '****' + giftCardCode.slice(-4),
+            });
+            return existingPayment;
+          } else {
+            log.info('Found captured payment for same gift card - will create new payment', {
+              paymentId: existingPayment.id,
+              giftCardCode: '****' + giftCardCode.slice(-4),
+            });
+          }
         }
       } catch (error) {
         log.warn('Failed to check existing payment', { error, paymentId: paymentRef.id });
       }
     }
+
+    return null;
   }
 
   /**
-   * Helper: Create payment and add to cart
+   * Helper: Create new payment or update existing payment
    */
-  private async createAndAddPayment(
+  private async createOrUpdatePayment(
     cart: any,
-    request: RedeemRequestDTO
+    request: RedeemRequestDTO,
+    existingPayment?: any,
+    fastifyRequest?: any,
   ): Promise<RedeemResponseDTO> {
+    if (existingPayment) {
+      // Update existing payment amount
+      const newAmount = existingPayment.amountPlanned.centAmount + request.amount.centAmount;
+
+      log.info('Updating existing gift card payment', {
+        paymentId: existingPayment.id,
+        previousAmount: existingPayment.amountPlanned.centAmount,
+        additionalAmount: request.amount.centAmount,
+        newTotalAmount: newAmount,
+        giftCardCode: '****' + request.code.slice(-4),
+      });
+
+      // Update payment with new amount using raw API
+      // The SDK's updatePayment doesn't support amountPlanned updates,
+      // so we use the raw API with update actions
+      await paymentSDK.ctAPI.payment.updatePayment({
+        resource: {
+          id: existingPayment.id,
+          version: existingPayment.version,
+        },
+        actions: [
+          {
+            action: 'changeAmountPlanned',
+            amount: {
+              centAmount: newAmount,
+              currencyCode: existingPayment.amountPlanned.currencyCode,
+            },
+          },
+        ],
+      });
+
+      log.info('Payment amount updated successfully', {
+        paymentId: existingPayment.id,
+        newAmount: newAmount,
+      });
+
+      return {
+        isSuccess: true,
+        paymentReference: existingPayment.id,
+      };
+    }
+
+    // Create new payment (first application of this card)
+    log.info('First application of this gift card - creating new payment', {
+      amount: request.amount.centAmount,
+      giftCardCode: '****' + request.code.slice(-4),
+    });
+
     const payment = await this.ctPaymentService.createPayment({
       amountPlanned: {
         centAmount: request.amount.centAmount,
@@ -455,8 +570,17 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
           key: 'customPaymentFields',
         },
         fields: {
+          transaction_card_type: 'Harry Rosen GiftCard',
+          transaction_card_last4: `Giftcard ${request.code.slice(-4)}`,
           giftCardCode: request.code,
-          giftCardPin: request.securityCode,
+          giftCardPin: this.encryptionService.encrypt(request.securityCode || ''),
+          user_agent_string: fastifyRequest?.headers['user-agent'] || 'unknown',
+          user_ip_address: this.extractClientIp(fastifyRequest),
+          transaction_date: this.getTransactionDate(),
+          transaction_time: this.getTransactionTime(),
+          avs_result: 'N/A',
+          cvd_result: 'N/A',
+          bin: 'N/A',
         },
       },
     });
@@ -481,24 +605,27 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
    * Redeem gift card - AUTHORIZATION ONLY (Two-Step Flow)
    *
    * This method creates a pending payment in commercetools and adds it to the cart.
+   * If the same gift card is already applied (without transactions), it updates the existing payment.
    * The actual redemption from Harry Rosen API happens later during capturePayment().
    *
    * Flow:
    * 1. User clicks "Apply" → This method (redeem)
    *    - Validates card number and PIN
-   *    - Checks balance with Harry Rosen API
-   *    - Creates payment in commercetools (NO transaction yet)
+   *    - Checks if card already has a pending payment
+   *    - Checks balance with Harry Rosen API (considering already applied amount)
+   *    - Updates existing payment OR creates new payment in commercetools (NO transaction yet)
    *    - Stores card details in payment custom fields
-   *    - Adds payment to cart
+   *    - Adds payment to cart (if new)
    *
    * 2. Order is created → capturePayment() is called automatically
    *    - Retrieves stored card details
-   *    - Calls Harry Rosen API to actually redeem
+   *    - Calls Harry Rosen API to actually redeem (once per unique card)
    *    - Adds transaction to payment
    *
-   * This prevents charging the customer if they abandon the cart.
+   * This prevents charging the customer if they abandon the cart and consolidates
+   * multiple applications of the same gift card into a single payment.
    */
-  async redeem(request: RedeemRequestDTO): Promise<RedeemResponseDTO> {
+  async redeem(request: RedeemRequestDTO, fastifyRequest?: any): Promise<RedeemResponseDTO> {
     try {
       log.info('Authorizing gift card payment', {
         code: '****' + request.code.slice(-4),
@@ -510,21 +637,27 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         return validationError;
       }
 
+      // Get cart and check for existing payment for this gift card
+      const cartId = getCartIdFromContext();
+      const cart = await this.ctCartService.getCart({ id: cartId });
+
+      // Check if this gift card already has a pending payment (no transactions)
+      const existingPayment = await this.findExistingPaymentForCard(cart, request.code);
+      const alreadyAppliedAmount = existingPayment?.amountPlanned.centAmount || 0;
+
+      // Validate balance considering any already applied amount
       const balanceError = await this.validateBalanceAndAmount(
         request.code,
         request.securityCode!,
-        request.amount
+        request.amount,
+        alreadyAppliedAmount,
       );
       if (balanceError) {
         return balanceError;
       }
 
-      const cartId = getCartIdFromContext();
-      const cart = await this.ctCartService.getCart({ id: cartId });
-
-      await this.checkForDuplicatePayment(cart, request.code);
-
-      return await this.createAndAddPayment(cart, request);
+      // Create or update payment
+      return await this.createOrUpdatePayment(cart, request, existingPayment, fastifyRequest);
     } catch (error: any) {
       log.error('Error authorizing gift card payment', { error: error.message });
       return {
@@ -555,7 +688,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       log.warn('removePayment not fully implemented - payment remains in database', {
         paymentId,
         note: 'Payment has no transaction, no funds charged. Can be cleaned up later.',
-        giftCardCode: '****' + (payment.custom?.fields?.giftCardCode?.slice(-4) || 'unknown')
+        giftCardCode: '****' + (payment.custom?.fields?.giftCardCode?.slice(-4) || 'unknown'),
       });
     } catch (error) {
       log.error('Failed to remove payment', { error, paymentId });
@@ -579,9 +712,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
    * This ensures the gift card is only charged when the order is finalized,
    * not when the customer clicks "Apply" (which only authorizes).
    */
-  async capturePayment(
-    request: CapturePaymentRequest
-  ): Promise<PaymentProviderModificationResponse> {
+  async capturePayment(request: CapturePaymentRequest): Promise<PaymentProviderModificationResponse> {
     try {
       log.info('Capturing gift card payment (actual redemption)', {
         paymentId: request.payment.id,
@@ -593,10 +724,25 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
       // Extract stored gift card details
       const giftCardCode = payment.custom?.fields?.giftCardCode;
-      const giftCardPin = payment.custom?.fields?.giftCardPin;
+      const encryptedPin = payment.custom?.fields?.giftCardPin;
 
-      if (!giftCardCode || !giftCardPin) {
+      if (!giftCardCode || !encryptedPin) {
         log.error('Gift card details missing from payment', { paymentId: payment.id });
+        return {
+          outcome: PaymentModificationStatus.REJECTED,
+          pspReference: '',
+        };
+      }
+
+      // Decrypt PIN
+      let giftCardPin: string;
+      try {
+        giftCardPin = this.encryptionService.decrypt(encryptedPin);
+      } catch (error: any) {
+        log.error('Failed to decrypt gift card PIN', {
+          paymentId: payment.id,
+          error: error.message,
+        });
         return {
           outcome: PaymentModificationStatus.REJECTED,
           pspReference: '',
@@ -618,6 +764,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         amount: amountInDollars,
         reference_id: payment.id,
         reason: 'purchase',
+        orderId: request.orderId || '',
       });
 
       log.info('Harry Rosen redemption successful', {
@@ -667,9 +814,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
    * Note: Harry Rosen API doesn't have a specific void endpoint
    * This would need to be implemented as a refund
    */
-  async cancelPayment(
-    request: CancelPaymentRequest
-  ): Promise<PaymentProviderModificationResponse> {
+  async cancelPayment(request: CancelPaymentRequest): Promise<PaymentProviderModificationResponse> {
     try {
       log.info('Cancel payment requested', { paymentId: request.payment.id });
 
@@ -677,12 +822,24 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
       // Extract gift card details from payment
       const giftCardCode = payment.custom?.fields?.giftCardCode;
-      const giftCardPin = payment.custom?.fields?.giftCardPin;
+      const encryptedPin = payment.custom?.fields?.giftCardPin;
       const transactionId = payment.interfaceId;
       const amount = payment.amountPlanned;
 
-      if (!giftCardCode || !giftCardPin || !transactionId) {
+      if (!giftCardCode || !encryptedPin || !transactionId) {
         throw new Error('Missing gift card information for cancellation');
+      }
+
+      // Decrypt PIN
+      let giftCardPin: string;
+      try {
+        giftCardPin = this.encryptionService.decrypt(encryptedPin);
+      } catch (error: any) {
+        log.error('Failed to decrypt gift card PIN for cancellation', {
+          paymentId: payment.id,
+          error: error.message,
+        });
+        throw new Error('Failed to decrypt gift card PIN');
       }
 
       // Convert cents to dollars
@@ -696,6 +853,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         currency: amount.currencyCode,
         reference_id: transactionId,
         program: 'bold',
+        orderId: request.orderId || '',
       });
 
       log.info('Payment cancelled successfully', { paymentId: request.payment.id });
@@ -716,9 +874,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
   /**
    * Refund payment
    */
-  async refundPayment(
-    request: RefundPaymentRequest
-  ): Promise<PaymentProviderModificationResponse> {
+  async refundPayment(request: RefundPaymentRequest): Promise<PaymentProviderModificationResponse> {
     try {
       log.info('Refund payment requested', {
         paymentId: request.payment.id,
@@ -729,11 +885,23 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
       // Extract gift card details from payment
       const giftCardCode = payment.custom?.fields?.giftCardCode;
-      const giftCardPin = payment.custom?.fields?.giftCardPin;
+      const encryptedPin = payment.custom?.fields?.giftCardPin;
       const transactionId = payment.interfaceId;
 
-      if (!giftCardCode || !giftCardPin || !transactionId) {
+      if (!giftCardCode || !encryptedPin || !transactionId) {
         throw new Error('Missing gift card information for refund');
+      }
+
+      // Decrypt PIN
+      let giftCardPin: string;
+      try {
+        giftCardPin = this.encryptionService.decrypt(encryptedPin);
+      } catch (error: any) {
+        log.error('Failed to decrypt gift card PIN for refund', {
+          paymentId: payment.id,
+          error: error.message,
+        });
+        throw new Error('Failed to decrypt gift card PIN');
       }
 
       // Convert cents to dollars
@@ -746,6 +914,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         currency: request.amount.currencyCode,
         reference_id: transactionId,
         program: 'bold',
+        orderId: request.orderId || '',
       });
 
       log.info('Refund successful', {
@@ -770,11 +939,65 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
    * Reverse payment
    * Note: For gift cards, reverse is the same as cancel/refund
    */
-  async reversePayment(
-    request: ReversePaymentRequest
-  ): Promise<PaymentProviderModificationResponse> {
+  async reversePayment(request: ReversePaymentRequest): Promise<PaymentProviderModificationResponse> {
     log.info('Reverse payment requested (same as cancel)', { paymentId: request.payment.id });
     // Reverse is the same as cancel for gift cards
     return this.cancelPayment(request);
+  }
+
+  /**
+   * Test redeem - Direct CRM redemption for testing purposes
+   * This bypasses the normal payment flow and directly calls the CRM API
+   * Used only for manual testing via the test button
+   */
+  async testRedeem(request: { code: string; pin: string; amount: number; referenceId: string }): Promise<any> {
+    log.info('Test redeem requested', {
+      referenceId: request.referenceId,
+      amount: request.amount,
+    });
+
+    // Validate PAN (card number)
+    const panValidation = this.validatePAN(request.code);
+    if (!panValidation.valid) {
+      throw new Error(panValidation.error || 'Invalid card number');
+    }
+
+    // Validate PIN
+    const pinValidation = this.validatePIN(request.pin);
+    if (!pinValidation.valid) {
+      throw new Error(pinValidation.error || 'Invalid PIN');
+    }
+
+    // Amount should be in cents, convert to dollars for CRM
+    const amountInDollars = request.amount / 100;
+
+    log.info('Calling CRM redeem API', {
+      amountInDollars,
+      referenceId: request.referenceId,
+    });
+
+    try {
+      // Call CRM redeem directly
+      const result = await this.harryRosenClient.redeem({
+        pan: request.code,
+        pin: request.pin,
+        amount: amountInDollars,
+        reference_id: request.referenceId,
+        reason: 'test',
+        orderId: 'test-order-' + request.referenceId,
+      });
+
+      log.info('Test redeem successful', {
+        referenceId: result.reference_id,
+      });
+
+      return result;
+    } catch (error: any) {
+      log.error('Test redeem failed', {
+        error: error.message,
+        response: error.response?.data,
+      });
+      throw error;
+    }
   }
 }

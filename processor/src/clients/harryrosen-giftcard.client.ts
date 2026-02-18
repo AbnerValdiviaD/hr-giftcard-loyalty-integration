@@ -5,8 +5,8 @@ import { log } from '../libs/logger';
  * Types for Harry Rosen Gift Card API
  */
 export interface HarryRosenBalanceRequest {
-  pan: string;  // Card number
-  pin: string;  // Security code
+  pan: string; // Card number
+  pin: string; // Security code
 }
 
 export interface HarryRosenBalanceResponse {
@@ -19,6 +19,7 @@ export interface HarryRosenRedeemRequest {
   amount: number; // Amount in dollars (not cents)
   reference_id: string;
   reason: string;
+  orderId: string;
 }
 
 export interface HarryRosenRedeemResponse {
@@ -32,6 +33,7 @@ export interface HarryRosenRefundRequest {
   currency: string;
   reference_id: string;
   program: string;
+  orderId: string;
 }
 
 export interface HarryRosenRefundResponse {
@@ -46,8 +48,8 @@ export interface HarryRosenRefundResponse {
  * - Redeem & Refund: https://crmapptest.harryrosen.com:8000
  */
 export class HarryRosenGiftCardClient {
-  private balanceClient: AxiosInstance;      // For balance checks
-  private transactionClient: AxiosInstance;  // For redeem/refund
+  private balanceClient: AxiosInstance; // For balance checks
+  private transactionClient: AxiosInstance; // For redeem/refund
   private currency: string;
 
   constructor(config: {
@@ -55,6 +57,7 @@ export class HarryRosenGiftCardClient {
     transactionBaseUrl: string;
     username: string;
     password: string;
+    apiKey: string;
     currency: string;
   }) {
     this.currency = config.currency;
@@ -78,10 +81,14 @@ export class HarryRosenGiftCardClient {
     });
 
     // Create axios instance for TRANSACTION endpoints (redeem, refund)
+    // Uses Bearer token authentication per CTPaymentPluginCTEndpoints.md
+    const base64ApiKey = Buffer.from(config.apiKey).toString('base64');
     this.transactionClient = axios.create({
       baseURL: this.normalizeUrl(config.transactionBaseUrl),
-      auth: authConfig,
-      headers: commonHeaders,
+      headers: {
+        ...commonHeaders,
+        'Authorization': `Bearer ${base64ApiKey}`,
+      },
       timeout: 30000,
     });
 
@@ -129,7 +136,7 @@ export class HarryRosenGiftCardClient {
           status: error.response?.status,
         });
         return Promise.reject(error);
-      }
+      },
     );
   }
 
@@ -160,7 +167,7 @@ export class HarryRosenGiftCardClient {
 
       log.info('Harry Rosen health check response', {
         status: response.status,
-        data: response.data
+        data: response.data,
       });
 
       // Response should be "OK" string
@@ -173,15 +180,15 @@ export class HarryRosenGiftCardClient {
         details: {
           message: 'Unexpected response',
           responseCode: response.status,
-          data: response.data
-        }
+          data: response.data,
+        },
       };
     } catch (error: any) {
       log.error('Harry Rosen healthcheck failed', {
         error: error.message,
         code: error.code,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
       });
 
       return {
@@ -189,8 +196,8 @@ export class HarryRosenGiftCardClient {
         details: {
           error: error.message,
           code: error.code,
-          statusCode: error.response?.status
-        }
+          statusCode: error.response?.status,
+        },
       };
     }
   }
@@ -201,18 +208,21 @@ export class HarryRosenGiftCardClient {
    */
   async balance(request: HarryRosenBalanceRequest): Promise<HarryRosenBalanceResponse> {
     try {
-      const response = await this.balanceClient.post<HarryRosenBalanceResponse>(
-        '/api/giftcard/balance',
-        {
-          pan: request.pan.trim(),
-          pin: request.pin.trim(),
-        }
-      );
+      const response = await this.balanceClient.post<HarryRosenBalanceResponse>('/api/giftcard/balance', {
+        pan: request.pan.trim(),
+        pin: request.pin.trim(),
+      });
 
       return response.data;
     } catch (error: any) {
-      log.error('Balance check failed', { error: error.message });
-      throw new Error(`Balance check failed: ${error.message}`);
+      log.error('Balance check failed', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw new Error(
+        `Balance check failed: ${error.message}${error.response?.data ? ` - ${JSON.stringify(error.response.data)}` : ''}`,
+      );
     }
   }
 
@@ -222,21 +232,25 @@ export class HarryRosenGiftCardClient {
    */
   async redeem(request: HarryRosenRedeemRequest): Promise<HarryRosenRedeemResponse> {
     try {
-      const response = await this.transactionClient.post<HarryRosenRedeemResponse>(
-        '/api/giftcard/redeem',
-        {
-          pan: request.pan.trim(),
-          pin: request.pin.trim(),
-          amount: request.amount,
-          reference_id: request.reference_id,
-          reason: request.reason || 'purchase',
-        }
-      );
+      const response = await this.transactionClient.post<HarryRosenRedeemResponse>('/ct/payment/capture', {
+        pan: request.pan.trim(),
+        pin: request.pin.trim(),
+        amount: request.amount,
+        reference_id: request.reference_id,
+        reason: request.reason || 'purchase',
+        orderId: request.orderId,
+      });
 
       return response.data;
     } catch (error: any) {
-      log.error('Redeem failed', { error: error.message });
-      throw new Error(`Redeem failed: ${error.message}`);
+      log.error('Redeem failed', {
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw new Error(
+        `Redeem failed: ${error.message}${error.response?.data ? ` - ${JSON.stringify(error.response.data)}` : ''}`,
+      );
     }
   }
 
@@ -246,17 +260,15 @@ export class HarryRosenGiftCardClient {
    */
   async refund(request: HarryRosenRefundRequest): Promise<HarryRosenRefundResponse> {
     try {
-      const response = await this.transactionClient.post<HarryRosenRefundResponse>(
-        '/api/giftcard/return',
-        {
-          pan: request.pan,
-          pin: request.pin,
-          amount: request.amount,
-          currency: request.currency || this.currency,
-          reference_id: request.reference_id,
-          program: request.program || 'bold',
-        }
-      );
+      const response = await this.transactionClient.post<HarryRosenRefundResponse>('/api/giftcard/return', {
+        pan: request.pan,
+        pin: request.pin,
+        amount: request.amount,
+        currency: request.currency || this.currency,
+        reference_id: request.reference_id,
+        program: request.program || 'bold',
+        orderId: request.orderId,
+      });
 
       return response.data;
     } catch (error: any) {
@@ -274,6 +286,7 @@ export const HarryRosenGiftCardAPI = (config: {
   transactionBaseUrl: string;
   username: string;
   password: string;
+  apiKey: string;
   currency: string;
 }): HarryRosenGiftCardClient => {
   return new HarryRosenGiftCardClient(config);

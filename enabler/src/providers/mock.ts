@@ -1,4 +1,4 @@
-import { FormBuilder } from '../components/form';
+import { InlineFormBuilder } from '../components/inline-form';
 import { BaseOptions, EnablerOptions, GiftCardEnabler, GiftCardBuilder, PaymentResult } from './definitions';
 
 export class MockEnabler implements GiftCardEnabler {
@@ -36,6 +36,6 @@ export class MockEnabler implements GiftCardEnabler {
       throw new Error('MockEnabler not initialized');
     }
 
-    return new FormBuilder(setupData.baseOptions);
+    return new InlineFormBuilder(setupData.baseOptions);
   }
 }

@@ -10,11 +10,13 @@ export type CapturePaymentRequest = {
   amount: AmountSchemaDTO;
   payment: Payment;
   merchantReference?: string;
+  orderId?: string;
 };
 
 export type CancelPaymentRequest = {
   payment: Payment;
   merchantReference?: string;
+  orderId?: string;
 };
 
 export type RefundPaymentRequest = {
@@ -22,11 +24,13 @@ export type RefundPaymentRequest = {
   payment: Payment;
   merchantReference?: string;
   transactionId?: string;
+  orderId?: string;
 };
 
 export type ReversePaymentRequest = {
   payment: Payment;
   merchantReference?: string;
+  orderId?: string;
 };
 
 export type PaymentProviderModificationResponse = {

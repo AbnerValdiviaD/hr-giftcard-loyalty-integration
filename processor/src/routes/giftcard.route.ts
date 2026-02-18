@@ -76,7 +76,7 @@ export const mockGiftCardServiceRoutes = async (
       },
     },
     async (request, reply) => {
-      const res = await opts.giftCardService.redeem(request.body);
+      const res = await opts.giftCardService.redeem(request.body, request);
 
       return reply.status(200).send(res);
     },
@@ -111,6 +111,92 @@ export const mockGiftCardServiceRoutes = async (
       const { paymentId } = request.params;
       await opts.giftCardService.removePayment(paymentId);
       return reply.status(200).send({ success: true });
+    },
+  );
+
+  /**
+   * Test redeem endpoint - For manual testing only
+   * Directly calls CRM to redeem gift card without creating payment object
+   * This bypasses the normal payment flow
+   */
+  fastify.post<{
+    Body: {
+      code: string;
+      pin: string;
+      amount: number;
+      referenceId?: string;
+    };
+    Reply: {
+      ok: boolean;
+      status: number;
+      data?: any;
+      message?: string;
+      error?: string;
+      details?: any;
+    };
+  }>(
+    '/test/redeem',
+    {
+      preHandler: [opts.sessionHeaderAuthHook.authenticate()],
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            code: Type.String({ minLength: 10, maxLength: 19 }),
+            pin: Type.String({ minLength: 4, maxLength: 8 }),
+            amount: Type.Number({ minimum: 0.01 }),
+            referenceId: Type.Optional(Type.String()),
+          },
+          required: ['code', 'pin', 'amount'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              ok: Type.Boolean(),
+              status: Type.Number(),
+              data: Type.Optional(Type.Any()),
+              message: Type.Optional(Type.String()),
+            },
+          },
+          400: {
+            type: 'object',
+            properties: {
+              ok: Type.Boolean(),
+              status: Type.Number(),
+              error: Type.Optional(Type.String()),
+              details: Type.Optional(Type.Any()),
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { code, pin, amount, referenceId } = request.body;
+
+      try {
+        // Call service testRedeem method
+        const result = await (opts.giftCardService as any).testRedeem({
+          code,
+          pin,
+          amount,
+          referenceId: referenceId || `TEST-${Date.now()}`,
+        });
+
+        return reply.status(200).send({
+          ok: true,
+          status: 200,
+          data: result,
+          message: 'Gift card redeemed successfully',
+        });
+      } catch (error: any) {
+        return reply.status(400).send({
+          ok: false,
+          status: 400,
+          error: error.message || 'Redemption failed',
+          details: error.response?.data || {},
+        });
+      }
     },
   );
 };

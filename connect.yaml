@@ -53,3 +53,9 @@ deployAs:
         - key: HARRYROSEN_PASSWORD
           description: Harry Rosen API password
           required: true
+        - key: HARRYROSEN_GIFTCARD_API_KEY
+          description: API key used by the processor to authenticate requests to the Harry Rosen Gift Card API
+          required: true
+        - key: ENCRYPTION_KEY
+          description: Key used for encrypting sensitive data in the connector's configuration (e.g., bin). Must be 32 bytes for AES-256 encryption.
+          required: true

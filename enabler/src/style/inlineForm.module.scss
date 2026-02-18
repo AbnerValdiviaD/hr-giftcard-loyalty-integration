@@ -1,0 +1,459 @@
+// Harry Rosen Gift Card Form Styles - Pixel Perfect Match
+
+.wrapper {
+  font-family: 'AktivGrotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  border: 1px solid #d9d9d9;
+  background-color: #FAFAFA;
+  border-radius: 5px;
+  width: auto;
+  height: auto;
+  margin-top: 10px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  margin-right: 8px;
+  cursor: pointer;
+  accent-color: #1F1E1A;
+}
+
+.title {
+  font-family: 'HoeflerText', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1F1E1A;
+  letter-spacing: -0.28px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid #d9d9d9;
+  margin: 12px 0 16px 0;
+  width: 100%;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+}
+
+.balanceHeader {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.balanceLabel {
+  font-size: 14px;
+  font-weight: 400;
+  color: #1F1E1A;
+}
+
+.infoIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #666;
+  color: #666;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  background: transparent;
+  margin-left: 4px;
+
+  &:hover {
+    background: #f0f0f0;
+  }
+}
+
+.helpText {
+  font-size: 14px;
+  color: #1F1E1A;
+  margin: 0 0 20px 0;
+  line-height: 20px;
+}
+
+.link {
+  color: #036EB7;
+  text-decoration: none;
+  margin-left: 4px;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.inputRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+
+  @media screen and (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  border-radius: 5px;
+  background: white;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  height: 46px;
+
+  &::placeholder {
+    color: #A9A8A9;
+  }
+
+  &:focus {
+    outline: none;
+    border: 2px solid #0066CC;
+    padding: 11px 15px;
+  }
+
+  &:disabled {
+    background: #f5f5f5;
+    cursor: not-allowed;
+  }
+
+  @media screen and (max-width: 768px) {
+    height: 52px;
+  }
+}
+
+.cardNumberInput {
+  flex: 1;
+
+  @media screen and (max-width: 768px) {
+    width: 100%;
+  }
+}
+
+.pinGroup {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  @media screen and (max-width: 768px) {
+    width: 100%;
+  }
+}
+
+.lockIcon {
+  position: absolute;
+  left: 12px;
+  font-size: 14px;
+  color: #666666;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.pinInput {
+  padding-left: 36px;
+  padding-right: 90px;
+
+  &:focus {
+    padding-left: 35px;
+    padding-right: 89px;
+  }
+}
+
+.pinInfoIcon {
+  position: absolute;
+  right: 70px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #666;
+  color: #666;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  &:hover {
+    background: #f0f0f0;
+  }
+}
+
+.showButton {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #1F1E1A;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 6px 12px;
+  height: 28px;
+  border-radius: 3px;
+
+  &:hover {
+    background: #f0f0f0;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.loadBalanceButton {
+  width: 100%;
+  height: 48px;
+  background-color: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: background-color 0.2s;
+
+  &:hover:not(:disabled) {
+    background-color: #333333;
+  }
+
+  &:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  @media screen and (max-width: 768px) {
+    height: 52px;
+    font-size: 16px;
+  }
+}
+
+.balanceSection {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.amountInputWrapper {
+  position: relative;
+  flex: 1;
+  max-width: 200px;
+  margin-bottom: 16px;
+
+  @media screen and (max-width: 768px) {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+.dollarSign {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: #A9A8A9;
+  pointer-events: none;
+}
+
+.amountInput {
+  padding-left: 32px;
+  font-weight: 400;
+  height: 46px;
+
+  &:focus {
+    padding-left: 31px;
+  }
+
+  @media screen and (max-width: 768px) {
+    height: 52px;
+  }
+}
+
+.balanceText {
+  font-size: 14px;
+  color: #1F1E1A;
+  margin: 0;
+  line-height: 20px;
+  width: 100%;
+
+  strong {
+    font-weight: 600;
+  }
+
+  @media screen and (max-width: 768px) {
+    margin-top: 8px;
+  }
+}
+
+.errorText {
+  color: #CA3F22;
+  font-size: 14px;
+  margin: 0 0 24px 0;
+  line-height: 20px;
+}
+
+.applyButton {
+  cursor: pointer;
+  border: 1px solid #050505;
+  height: 3rem;
+  width: 11.25rem;
+  font-weight: 500;
+  background-color: white;
+  color: #1F1E1A;
+  font-size: 14px;
+  border-radius: 5px;
+  transition: background-color 0.2s;
+
+  &:hover:not(:disabled) {
+    background-color: #f5f5f5;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    background-color: #EAEBE3;
+    color: #A9A8A9;
+    border-color: #d9d9d9;
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.3);
+  }
+
+  @media screen and (max-width: 768px) {
+    width: 100%;
+    height: 52px;
+    font-size: 16px;
+  }
+}
+
+// Tooltip Styles
+.tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  display: none;
+
+  &[style*="display: block"] {
+    display: block;
+  }
+}
+
+.tooltipBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+
+  // Hide backdrop on desktop
+  @media screen and (min-width: 769px) {
+    display: none;
+  }
+
+  // Show backdrop on mobile
+  @media screen and (max-width: 768px) {
+    display: block;
+  }
+}
+
+.tooltipContent {
+  position: fixed;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10001;
+
+  @media screen and (min-width: 769px) {
+    // Desktop: positioned near top-center, no backdrop
+    top: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 320px;
+  }
+
+  @media screen and (max-width: 768px) {
+    // Mobile: centered with backdrop
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 400px;
+  }
+}
+
+.tooltipClose {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+
+  &:hover {
+    color: #000;
+  }
+}
+
+.tooltipMessage {
+  margin: 0;
+  padding-right: 30px;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+}
+
+// Responsive adjustments
+@media screen and (max-width: 768px) {
+  .wrapper {
+    padding: 16px;
+  }
+}

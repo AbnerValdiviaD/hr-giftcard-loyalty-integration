@@ -48,9 +48,10 @@ export abstract class AbstractGiftCardService {
   /**
    * Redeem Code
    * @param request - Redeem request with code, amount, and optional security code
+   * @param fastifyRequest - Optional Fastify request object for extracting metadata
    * @returns
    */
-  abstract redeem(request: RedeemRequestDTO): Promise<RedeemResponseDTO>;
+  abstract redeem(request: RedeemRequestDTO, fastifyRequest?: any): Promise<RedeemResponseDTO>;
 
   /**
    * Remove payment from cart and delete payment object
@@ -95,17 +96,36 @@ export abstract class AbstractGiftCardService {
     const ctPayment = await this.ctPaymentService.getPayment({
       id: opts.paymentId,
     });
+
+    // Query order by payment ID
+    let orderId: string | undefined;
+    try {
+      const order = await this.ctOrderService.getOrderByPaymentId({
+        paymentId: opts.paymentId,
+      });
+      if (order) {
+        orderId = order.orderNumber;
+      }
+    } catch (error) {
+      // Order not found - this is OK during authorization phase
+    }
+
     const request = opts.data.actions[0];
 
     switch (request.action) {
       case 'cancelPayment': {
-        return await this.cancelPayment({ payment: ctPayment, merchantReference: request.merchantReference });
+        return await this.cancelPayment({
+          payment: ctPayment,
+          merchantReference: request.merchantReference,
+          orderId: request.orderId || orderId,
+        });
       }
       case 'capturePayment': {
         return await this.capturePayment({
           payment: ctPayment,
           merchantReference: request.merchantReference,
           amount: request.amount,
+          orderId: request.orderId || orderId,
         });
       }
       case 'refundPayment': {
@@ -114,12 +134,14 @@ export abstract class AbstractGiftCardService {
           payment: ctPayment,
           merchantReference: request.merchantReference,
           transactionId: request.transactionId,
+          orderId: request.orderId || orderId,
         });
       }
       case 'reversePayment': {
         return await this.reversePayment({
           payment: ctPayment,
           merchantReference: request.merchantReference,
+          orderId: request.orderId || orderId,
         });
       }
       default: {

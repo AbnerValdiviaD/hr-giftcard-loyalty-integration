@@ -20,6 +20,10 @@ export const config = {
   harryRosenTransactionUrl: process.env.HARRYROSEN_TRANSACTION_URL || 'https://crmapptest.harryrosen.com:8000',
   harryRosenUser: process.env.HARRYROSEN_USER || '',
   harryRosenPassword: process.env.HARRYROSEN_PASSWORD || '',
+  harryRosenGiftcardApiKey: process.env.HARRYROSEN_GIFTCARD_API_KEY || '',
+
+  // Encryption configuration
+  encryptionKey: process.env.ENCRYPTION_KEY || '',
 
   // Required by logger
   loggerLevel: process.env.LOGGER_LEVEL || 'info',

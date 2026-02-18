@@ -8,7 +8,14 @@ dotenv.config();
  *
  * Note: This connector uses an existing payment custom type with the following required fields:
  * - giftCardCode (String): Stores the gift card number during authorization
- * - giftCardPin (String): Stores the gift card PIN during authorization
+ * - giftCardPin (String): Stores the encrypted gift card PIN (AES-256-GCM) during authorization
+ * - user_agent_string (String): Browser user agent
+ * - user_ip_address (String): Client IP address
+ * - transaction_date (String): Transaction date (YYYYMMDD)
+ * - transaction_time (String): Transaction time (HHMMSS)
+ * - avs_result (String): AVS result
+ * - cvd_result (String): CVD result
+ * - bin (String): BIN number
  *
  * Ensure your commercetools project has a payment custom type with these fields before deployment.
  */
@@ -28,6 +35,7 @@ async function postDeploy(properties: any) {
         'HARRYROSEN_TRANSACTION_URL',
         'HARRYROSEN_USER',
         'HARRYROSEN_PASSWORD',
+        'ENCRYPTION_KEY',
       ];
 
       const missingVars = requiredVars.filter((varName) => !process.env[varName]);
@@ -39,7 +47,16 @@ async function postDeploy(properties: any) {
 
       console.log('Post-deploy validation completed!');
       console.log('\nNext steps:');
-      console.log('   1. Ensure your payment custom type includes giftCardCode and giftCardPin fields');
+      console.log('   1. Ensure your payment custom type includes these fields:');
+      console.log('      - giftCardCode (String): Gift card number');
+      console.log('      - giftCardPin (String): Encrypted gift card PIN (AES-256-GCM)');
+      console.log('      - user_agent_string (String): Browser user agent');
+      console.log('      - user_ip_address (String): Client IP address');
+      console.log('      - transaction_date (String): Transaction date (YYYYMMDD)');
+      console.log('      - transaction_time (String): Transaction time (HHMMSS)');
+      console.log('      - avs_result (String): AVS result');
+      console.log('      - cvd_result (String): CVD result');
+      console.log('      - bin (String): BIN number');
       console.log('   2. Configure all required environment variables');
       console.log('   3. Test the connector with /operations/status endpoint\n');
     } catch (error: any) {

@@ -220,6 +220,7 @@ export class MockGiftCardService extends AbstractGiftCardService {
    * @returns Promise with mocking data containing operation status and PSP reference
    */
   async capturePayment(request: CapturePaymentRequest): Promise<PaymentProviderModificationResponse> {
+    // Accept orderId parameter but don't use it in mock implementation
     throw new ErrorGeneral('operation not supported', {
       fields: {
         pspReference: request.payment.interfaceId,
@@ -238,6 +239,7 @@ export class MockGiftCardService extends AbstractGiftCardService {
    * @returns Promise with mocking data containing operation status and PSP reference
    */
   async cancelPayment(request: CancelPaymentRequest): Promise<PaymentProviderModificationResponse> {
+    // Accept orderId parameter but don't use it in mock implementation
     throw new ErrorGeneral('operation not supported', {
       fields: {
         pspReference: request.payment.interfaceId,
@@ -247,6 +249,7 @@ export class MockGiftCardService extends AbstractGiftCardService {
   }
 
   async refundPayment(request: RefundPaymentRequest): Promise<PaymentProviderModificationResponse> {
+    // Accept orderId parameter but don't use it in mock implementation
     log.info(`Processing payment modification.`, {
       paymentId: request.payment.id,
       action: 'refundPayment',
@@ -277,6 +280,7 @@ export class MockGiftCardService extends AbstractGiftCardService {
    * @returns Promise with outcome containing operation status and PSP reference
    */
   async reversePayment(request: ReversePaymentRequest): Promise<PaymentProviderModificationResponse> {
+    // Accept orderId parameter but don't use it in mock implementation
     log.info(`Processing payment modification.`, {
       paymentId: request.payment.id,
       action: 'reversePayment',
