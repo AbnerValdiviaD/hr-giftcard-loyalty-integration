@@ -268,20 +268,25 @@
 
 .balanceSection {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-start;
+  gap: 16px;
   margin-bottom: 24px;
   width: 100%;
+
+  @media screen and (max-width: 768px) {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
 .amountInputWrapper {
   position: relative;
-  flex: 1;
-  max-width: 200px;
-  margin-bottom: 16px;
+  flex: 0 0 auto;
+  width: 200px;
+  margin-bottom: 0;
 
   @media screen and (max-width: 768px) {
-    max-width: 100%;
     width: 100%;
   }
 }
@@ -315,15 +320,16 @@
   color: #1F1E1A;
   margin: 0;
   line-height: 20px;
-  width: 100%;
-
-  strong {
-    font-weight: 600;
-  }
+  flex: 1;
 
   @media screen and (max-width: 768px) {
-    margin-top: 8px;
+    margin-top: 0;
   }
+}
+
+/* Explicit selector for strong tags */
+.balanceText strong {
+  font-weight: 600;
 }
 
 .errorText {

@@ -73,7 +73,7 @@ class InlineForm implements GiftCardComponent {
           <div class="${styles.inputRow}">
             <input
               type="text"
-              id="card-number"
+              id="giftcard-code"
               class="${styles.input} ${styles.cardNumberInput}"
               placeholder="Enter 16 Digit Card Number"
               maxlength="16"
@@ -130,7 +130,7 @@ class InlineForm implements GiftCardComponent {
   }
 
   private attachEventListeners(): void {
-    this.cardNumberInput = document.getElementById('card-number') as HTMLInputElement;
+    this.cardNumberInput = document.getElementById('giftcard-code') as HTMLInputElement;
     this.pinInput = document.getElementById('pin') as HTMLInputElement;
     this.amountInput = document.getElementById('amount') as HTMLInputElement;
     this.loadBalanceButton = document.getElementById('load-balance') as HTMLButtonElement;
@@ -302,7 +302,7 @@ class InlineForm implements GiftCardComponent {
 
       // Update balance message
       if (this.balanceMessage) {
-        this.balanceMessage.innerHTML = `Gift card applied! Remaining balance: <strong>$${Math.floor(this.currentBalance)}</strong>`;
+        this.balanceMessage.innerHTML = `Your current balance is: <strong>$${Math.floor(this.currentBalance)}</strong>. Please enter the amount you want to redeem and select Apply below.`;
       }
 
       // Reset amount input to 0
