@@ -5,18 +5,26 @@ export const getInput = (field: string) => document.querySelector(`#${field}`) a
 
 export const showError = (field: string, textContent: string) => {
   const input = getInput(field);
-  input.parentElement.classList.add(inputFieldStyles.error);
-  const errorElement = input.parentElement.querySelector(`#${field} + .${inputFieldStyles.errorField}`);
-  errorElement.textContent = textContent;
-  errorElement.classList.remove(inputFieldStyles.hidden);
+  const errorElement = document.getElementById(`${field}-error`);
+  if (errorElement) {
+    errorElement.textContent = textContent;
+    errorElement.classList.remove(inputFieldStyles.hidden);
+  }
+  if (input?.parentElement) {
+    input.parentElement.classList.add(inputFieldStyles.error);
+  }
 };
 
 export const hideError = (field: string) => {
   const input = getInput(field);
-  input.parentElement.classList.remove(inputFieldStyles.error);
-  const errorElement = input.parentElement.querySelector(`#${field} + .${inputFieldStyles.errorField}`);
-  errorElement.textContent = '';
-  errorElement.classList.add(inputFieldStyles.hidden);
+  const errorElement = document.getElementById(`${field}-error`);
+  if (errorElement) {
+    errorElement.textContent = '';
+    errorElement.classList.add(inputFieldStyles.hidden);
+  }
+  if (input?.parentElement) {
+    input.parentElement.classList.remove(inputFieldStyles.error);
+  }
 };
 
 export const fieldIds = {
@@ -28,26 +36,32 @@ export const fieldIds = {
 
 const handleChangeEvent = (field: string, onValueChange?: (hasValue: boolean) => Promise<void>) => {
   const input = getInput(field);
-  if (input) {
-    input.addEventListener('input', () => {
-      onValueChange?.(input.value !== '');
-    });
-  }
+  if (!input) return;
+
+  input.addEventListener('input', () => {
+    onValueChange?.(input.value !== '');
+  });
 
   input.addEventListener('focusout', () => {
-    input.value.length > 0
-      ? input.parentElement.classList.add(inputFieldStyles.containValue)
-      : input.parentElement.classList.remove(inputFieldStyles.containValue);
+    if (input.value.length > 0) {
+      input.parentElement?.classList.add(inputFieldStyles.containValue);
+    } else {
+      input.parentElement?.classList.remove(inputFieldStyles.containValue);
+    }
   });
 };
 
 export const addFormFieldsEventListeners = (giftcardOptions: GiftCardOptions) => {
-  handleChangeEvent(fieldIds.code, giftcardOptions?.onValueChange);
+  // Auto-hide errors when user types in the fields
   handleChangeEvent(fieldIds.code, async () => hideError(fieldIds.code));
-  handleChangeEvent(fieldIds.pin, giftcardOptions?.onValueChange);
   handleChangeEvent(fieldIds.pin, async () => hideError(fieldIds.pin));
+
+  // Handle Enter key press if callback is provided
   handleEnter(fieldIds.code, giftcardOptions?.onEnter);
   handleEnter(fieldIds.pin, giftcardOptions?.onEnter);
+
+  // Note: onValueChange is handled manually in FormComponent based on amount validity
+  // This allows the SDK to be notified only when amount > 0 and <= balance
 };
 
 type Res = {

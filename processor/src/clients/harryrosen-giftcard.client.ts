@@ -145,6 +145,17 @@ export class HarryRosenGiftCardClient {
    */
   private sanitizeLogData(data: any): any {
     if (!data) return data;
+
+    // If data is a string, return it as is (e.g., error messages)
+    if (typeof data === 'string') {
+      return data;
+    }
+
+    // If data is not an object, return it as is
+    if (typeof data !== 'object') {
+      return data;
+    }
+
     const sanitized = { ...data };
     if (sanitized.pan) {
       sanitized.pan = '****' + sanitized.pan.slice(-4);
@@ -208,10 +219,15 @@ export class HarryRosenGiftCardClient {
    */
   async balance(request: HarryRosenBalanceRequest): Promise<HarryRosenBalanceResponse> {
     try {
-      const response = await this.balanceClient.post<HarryRosenBalanceResponse>('/api/giftcard/balance', {
+      const response = await this.balanceClient.post<HarryRosenBalanceResponse | string>('/api/giftcard/balance', {
         pan: request.pan.trim(),
         pin: request.pin.trim(),
       });
+
+      // Harry Rosen API returns a string error message on invalid card/pin with HTTP 200
+      if (typeof response.data === 'string') {
+        throw new Error(response.data);
+      }
 
       return response.data;
     } catch (error: any) {

@@ -46,13 +46,21 @@ export const mockGiftCardServiceRoutes = async (
         },
         response: {
           200: BalanceResponseSchema,
+          400: BalanceResponseSchema, // Same schema for error responses
         },
       },
     },
     async (request, reply) => {
       const { code, securityCode } = request.body;
       const res = await opts.giftCardService.balance(code, securityCode);
-      return reply.status(200).send(res);
+
+      // Return appropriate HTTP status based on balance check result
+      if (res.status.state === 'Valid') {
+        return reply.status(200).send(res);
+      } else {
+        // Return 400 for invalid card/pin, not found, expired, etc.
+        return reply.status(400).send(res);
+      }
     },
   );
 
@@ -72,13 +80,20 @@ export const mockGiftCardServiceRoutes = async (
         },
         response: {
           200: RedeemResponseSchema,
+          400: RedeemResponseSchema, // Same schema for error responses
         },
       },
     },
     async (request, reply) => {
       const res = await opts.giftCardService.redeem(request.body, request);
 
-      return reply.status(200).send(res);
+      // Return appropriate HTTP status based on redeem result
+      if (res.isSuccess) {
+        return reply.status(200).send(res);
+      } else {
+        // Return 400 for failed redemptions
+        return reply.status(400).send(res);
+      }
     },
   );
 
