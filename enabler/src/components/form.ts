@@ -150,6 +150,17 @@ export class FormComponent extends DefaultComponent {
             Apply
           </button>
         </div>
+
+        <!-- SDK Payment Button - controlled by commercetools SDK -->
+        <button
+          type="button"
+          class="${styles.applyButton}"
+          id="sdk-payment-button"
+          data-ctc-selector="paymentButton"
+          style="display: none; margin-top: 12px;"
+        >
+          Complete Payment
+        </button>
       </div>
 
       <div id="info-tooltip" class="${styles.tooltip}" style="display: none;">

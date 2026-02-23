@@ -358,29 +358,34 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         };
       }
 
-      // Check currency match
-      const expectedCurrency = getConfig().mockConnectorCurrency;
-      if (expectedCurrency && expectedCurrency.toUpperCase() !== 'CAD') {
+      // Harry Rosen gift cards are always in CAD
+      const giftCardCurrency = 'USD';
+      const configuredCurrency = getConfig().mockConnectorCurrency;
+
+      // Check if the gift card currency matches the deployment's configured currency
+      if (configuredCurrency && configuredCurrency.toUpperCase() !== giftCardCurrency) {
+        console.log(`Currency mismatch: Gift card is ${giftCardCurrency}, but deployment is configured for ${configuredCurrency}`);
         return {
           status: {
             state: 'CurrencyNotMatch',
             errors: [
               {
                 code: 'CurrencyNotMatch',
-                message: 'Gift card currency does not match cart currency',
+                message: `Gift card currency (${giftCardCurrency}) does not match configured currency (${configuredCurrency})`,
               },
             ],
           },
         };
       }
 
+      console.log(`Currency check passed: ${giftCardCurrency} matches configured currency`);
       return {
         status: {
           state: 'Valid',
         },
         amount: {
           centAmount: balanceInCents,
-          currencyCode: 'CAD',
+          currencyCode: giftCardCurrency,
         },
       };
     } catch (error: any) {
