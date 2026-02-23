@@ -43,6 +43,12 @@ export class FormComponent extends DefaultComponent {
 
   constructor(opts: { giftcardOptions: GiftCardOptions; baseOptions: BaseOptions }) {
     super(opts);
+
+    // Bind methods to preserve `this` context when called externally
+    this.balance = this.balance.bind(this);
+    this.submit = this.submit.bind(this);
+    this.mount = this.mount.bind(this);
+    this.unmount = this.unmount.bind(this);
   }
 
   mount(selector: string): void {
@@ -447,14 +453,22 @@ export class FormComponent extends DefaultComponent {
   }
 
   async submit(opts: { amount?: Amount }): Promise<void> {
+    console.log('[GiftCard] submit() called with:', opts);
+
     const cardNumber = this.cardNumberInput?.value || '';
     const pin = this.pinInput?.value || '';
     const amount = opts?.amount;
 
+    console.log('[GiftCard] Card number:', cardNumber ? '****' + cardNumber.slice(-4) : 'empty');
+    console.log('[GiftCard] PIN:', pin ? '****' : 'empty');
+    console.log('[GiftCard] Amount:', amount);
+
     if (!amount) {
+      console.error('[GiftCard] Amount is required!');
       throw new Error('Amount is required');
     }
 
+    console.log('[GiftCard] Calling /redeem endpoint...');
     const response = await fetch(`${this.baseOptions.processorUrl}/redeem`, {
       method: 'POST',
       headers: {
@@ -470,6 +484,8 @@ export class FormComponent extends DefaultComponent {
 
     const result = await response.json();
 
+    console.log('[GiftCard] Redeem response:', { ok: response.ok, status: response.status });
+
     if (!response.ok) {
       // Extract error message - backend may return { errorMessage } for redeem failures
       let errorMessage = 'Redemption failed';
@@ -484,10 +500,14 @@ export class FormComponent extends DefaultComponent {
         errorMessage = result.message;
       }
 
+      console.error('[GiftCard] Redeem failed (HTTP error):', errorMessage);
       throw new Error(errorMessage);
     }
 
+    console.log('[GiftCard] Redeem result:', result);
+
     if (!result.isSuccess) {
+      console.error('[GiftCard] Redeem failed (isSuccess=false):', result.errorMessage);
       throw new Error(result.errorMessage || 'Redemption failed');
     }
 
@@ -496,6 +516,8 @@ export class FormComponent extends DefaultComponent {
       paymentReference: result.paymentReference
     };
 
+    console.log('[GiftCard] Redemption successful, calling onComplete with:', paymentResult);
     this.baseOptions.onComplete?.(paymentResult);
+    console.log('[GiftCard] submit() completed successfully');
   }
 }

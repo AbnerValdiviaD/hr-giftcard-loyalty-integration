@@ -118,7 +118,8 @@
 .inputWrapper {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   position: relative;
 }
 
@@ -155,8 +156,6 @@
 }
 
 .cardNumberInput {
-  flex: 1;
-
   @media screen and (max-width: 768px) {
     width: 100%;
   }
@@ -196,7 +195,8 @@
 }
 
 .pinGroup {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 
@@ -223,6 +223,7 @@
 }
 
 .pinInput {
+  flex: 1;
   padding-right: 70px;
 
   &:focus {
