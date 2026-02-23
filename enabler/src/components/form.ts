@@ -418,7 +418,7 @@ export class FormComponent extends DefaultComponent {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-session-id': this.baseOptions.sessionId
+        'X-Session-ID': this.baseOptions.sessionId
       },
       body: JSON.stringify({
         code: cardNumber,
@@ -480,7 +480,7 @@ export class FormComponent extends DefaultComponent {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-session-id': this.baseOptions.sessionId
+        'X-Session-ID': this.baseOptions.sessionId
       },
       body: JSON.stringify({
         code: cardNumber,
