@@ -25,6 +25,7 @@ export type BaseOptions = {
   locale?: string;
   onComplete?: (result: PaymentResult) => void;
   onError?: (error: any) => void;
+  onInfo?: (info: { type: string; message: string; data?: any }) => void;
 };
 
 export type BalanceType = {
@@ -47,6 +48,7 @@ export type EnablerOptions = {
   locale?: string;
   onComplete?: (result: PaymentResult) => void;
   onError?: (error: any) => void;
+  onInfo?: (info: { type: string; message: string; data?: any }) => void;
 };
 
 export type PaymentResult =

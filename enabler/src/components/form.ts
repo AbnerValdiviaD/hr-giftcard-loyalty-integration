@@ -39,6 +39,7 @@ export class FormComponent extends DefaultComponent {
   private showPinButton: HTMLButtonElement | null = null;
   private balanceMessage: HTMLElement | null = null;
   private currentBalance: number = 0;
+  private appliedAmount: number = 0;
   private isPinVisible: boolean = false;
 
   constructor(opts: { giftcardOptions: GiftCardOptions; baseOptions: BaseOptions }) {
@@ -345,7 +346,12 @@ export class FormComponent extends DefaultComponent {
   }
 
   private async handleApply(): Promise<void> {
+    const cardNumber = this.cardNumberInput?.value || '';
     const amount = parseFloat(this.amountInput?.value || '0');
+
+    console.log('[GiftCard] handleApply() called - preparing data for SDK');
+    console.log('[GiftCard] Card number:', cardNumber ? '****' + cardNumber.slice(-4) : 'empty');
+    console.log('[GiftCard] Amount:', amount);
 
     // Clear previous errors
     hideError(fieldIds.code);
@@ -360,60 +366,54 @@ export class FormComponent extends DefaultComponent {
       return;
     }
 
+    // Store the amount for later use in submit()
+    this.appliedAmount = amount;
+
+    // Update balance display
+    this.currentBalance = this.currentBalance - amount;
+
+    // Update balance message
+    if (this.balanceMessage) {
+      this.balanceMessage.innerHTML = `Gift card applied! Remaining balance: <strong>$${Math.floor(this.currentBalance)}</strong>. Click "Apply Harry Rosen" to complete payment.`;
+    }
+
+    // Reset amount input to 0
+    if (this.amountInput) {
+      this.amountInput.value = '0';
+    }
+
+    // Disable apply button
     if (this.applyButton) {
       this.applyButton.disabled = true;
-      this.applyButton.textContent = 'Applying...';
+      this.applyButton.textContent = 'Applied';
     }
 
-    try {
-      await this.submit({
-        amount: {
-          centAmount: Math.round(amount * 100),
-          currencyCode: 'CAD',
-        }
-      });
+    // Notify SDK that form is valid and ready for payment
+    // SDK will call submit() when user clicks the payment button
+    console.log('[GiftCard] Notifying SDK that form is ready with amount:', this.appliedAmount);
+    this.notifySDKValidity(true);
 
-      console.log('Gift card redeemed successfully');
-
-      // Update balance after successful apply
-      this.currentBalance = this.currentBalance - amount;
-
-      // Update balance message
-      if (this.balanceMessage) {
-        this.balanceMessage.innerHTML = `Gift card applied! Remaining balance: <strong>$${Math.floor(this.currentBalance)}</strong>`;
+    // Send info to payment flow
+    this.baseOptions.onInfo?.({
+      type: 'gift_card_applied_custom',
+      message: `Gift card ready to apply $${this.appliedAmount}`,
+      data: {
+        cardNumber: cardNumber ? '****' + cardNumber.slice(-4) : '',
+        amount: this.appliedAmount,
+        remainingBalance: this.currentBalance
       }
+    });
 
-      // Reset amount input to 0
-      if (this.amountInput) {
-        this.amountInput.value = '0';
-      }
-
-      // Disable apply button
-      if (this.applyButton) {
-        this.applyButton.disabled = true;
-      }
-
-      // Notify SDK that form is no longer valid (amount is 0)
-      this.notifySDKValidity(false);
-
-      hideError(fieldIds.code);
-    } catch (error: any) {
-      showError(fieldIds.code, 'Error applying gift card: ' + error.message);
-      // Notify SDK that form is invalid due to error
-      this.notifySDKValidity(false);
-      if (this.baseOptions.onError) {
-        this.baseOptions.onError(error);
-      }
-    } finally {
-      if (this.applyButton) {
-        this.applyButton.textContent = 'Apply';
-      }
-    }
+    hideError(fieldIds.code);
   }
 
   async balance(): Promise<BalanceType> {
+    console.log('[GiftCard] balance() called');
     const cardNumber = this.cardNumberInput?.value || '';
     const pin = this.pinInput?.value || '';
+
+    console.log('[GiftCard] Card number:', cardNumber ? '****' + cardNumber.slice(-4) : 'empty');
+    console.log('[GiftCard] PIN:', pin ? '****' : 'empty');
 
     const response = await fetch(`${this.baseOptions.processorUrl}/balance`, {
       method: 'POST',
@@ -428,6 +428,7 @@ export class FormComponent extends DefaultComponent {
     });
 
     const result = await response.json();
+    console.log('[GiftCard] Balance response:', { ok: response.ok, status: response.status, result });
 
     if (!response.ok) {
       // Extract error message from various possible formats
@@ -446,9 +447,11 @@ export class FormComponent extends DefaultComponent {
         errorMessage = result;
       }
 
+      console.error('[GiftCard] Balance check failed:', errorMessage);
       throw new Error(errorMessage);
     }
 
+    console.log('[GiftCard] Balance check successful');
     return result;
   }
 
@@ -457,11 +460,16 @@ export class FormComponent extends DefaultComponent {
 
     const cardNumber = this.cardNumberInput?.value || '';
     const pin = this.pinInput?.value || '';
-    const amount = opts?.amount;
+
+    // Use appliedAmount if set (from handleApply), otherwise use opts.amount
+    const amount = this.appliedAmount > 0
+      ? { centAmount: Math.round(this.appliedAmount * 100), currencyCode: 'CAD' }
+      : opts?.amount;
 
     console.log('[GiftCard] Card number:', cardNumber ? '****' + cardNumber.slice(-4) : 'empty');
     console.log('[GiftCard] PIN:', pin ? '****' : 'empty');
-    console.log('[GiftCard] Amount:', amount);
+    console.log('[GiftCard] Amount from appliedAmount:', this.appliedAmount);
+    console.log('[GiftCard] Amount to use:', amount);
 
     if (!amount) {
       console.error('[GiftCard] Amount is required!');
@@ -518,6 +526,10 @@ export class FormComponent extends DefaultComponent {
 
     console.log('[GiftCard] Redemption successful, calling onComplete with:', paymentResult);
     this.baseOptions.onComplete?.(paymentResult);
+
+    // Reset applied amount after successful redemption
+    this.appliedAmount = 0;
+
     console.log('[GiftCard] submit() completed successfully');
   }
 }
