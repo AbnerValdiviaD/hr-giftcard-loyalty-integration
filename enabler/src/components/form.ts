@@ -474,7 +474,7 @@ export class FormComponent extends DefaultComponent {
 
     // Use appliedAmount if set (from handleApply), otherwise use opts.amount
     const amount = this.appliedAmount > 0
-      ? { centAmount: Math.round(this.appliedAmount * 100), currencyCode: 'CAD' }
+      ? { centAmount: Math.round(this.appliedAmount * 100), currencyCode: 'USD' }
       : opts?.amount;
 
     console.log('[GiftCard] Card number:', cardNumber ? '****' + cardNumber.slice(-4) : 'empty');
