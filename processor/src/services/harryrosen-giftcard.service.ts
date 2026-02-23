@@ -527,7 +527,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       // Update payment with new amount using raw API
       // The SDK's updatePayment doesn't support amountPlanned updates,
       // so we use the raw API with update actions
-      await paymentSDK.ctAPI.payment.updatePayment({
+      const updatedPayment = await paymentSDK.ctAPI.payment.updatePayment({
         resource: {
           id: existingPayment.id,
           version: existingPayment.version,
@@ -541,6 +541,19 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
             },
           },
         ],
+      });
+
+      // Update Authorization transaction with new amount
+      await this.ctPaymentService.updatePayment({
+        id: updatedPayment.id,
+        transaction: {
+          type: 'Authorization',
+          amount: {
+            centAmount: newAmount,
+            currencyCode: existingPayment.amountPlanned.currencyCode,
+          },
+          state: 'Success',
+        },
       });
 
       log.info('Payment amount updated successfully', {
@@ -593,6 +606,19 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
     await this.ctCartService.addPayment({
       resource: { id: cart.id, version: cart.version },
       paymentId: payment.id,
+    });
+
+    // Add Authorization transaction to signal payment is ready
+    await this.ctPaymentService.updatePayment({
+      id: payment.id,
+      transaction: {
+        type: 'Authorization',
+        amount: {
+          centAmount: request.amount.centAmount,
+          currencyCode: request.amount.currencyCode,
+        },
+        state: 'Success',
+      },
     });
 
     log.info('Payment authorized and added to cart', {
