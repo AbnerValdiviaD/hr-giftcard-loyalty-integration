@@ -146,7 +146,8 @@ export class FormComponent extends DefaultComponent {
             <p class="${styles.balanceText}" id="balance-message"></p>
           </div>
 
-          <button type="button" class="${styles.applyButton}" id="apply-button" disabled>
+          <!-- Custom Apply button hidden - SDK button handles everything -->
+          <button type="button" class="${styles.applyButton}" id="apply-button" disabled style="display: none;">
             Apply
           </button>
         </div>
@@ -451,6 +452,39 @@ export class FormComponent extends DefaultComponent {
     }
 
     console.log('[GiftCard] Balance check successful');
+
+    // If user entered a specific amount, return that instead of full balance
+    const userAmount = parseFloat(this.amountInput?.value || '0');
+    if (userAmount > 0 && result.status?.state === 'Valid' && result.amount) {
+      const userAmountInCents = Math.round(userAmount * 100);
+      const cardBalanceInCents = result.amount.centAmount;
+
+      console.log('[GiftCard] User specified amount:', userAmount, 'Card balance:', cardBalanceInCents / 100);
+
+      // Check if card has sufficient balance for user's desired amount
+      if (cardBalanceInCents >= userAmountInCents) {
+        console.log('[GiftCard] Returning user-specified amount to SDK:', userAmountInCents);
+        return {
+          status: { state: 'Valid' },
+          amount: {
+            centAmount: userAmountInCents,
+            currencyCode: result.amount.currencyCode,
+          },
+        };
+      } else {
+        // Insufficient balance for desired amount
+        return {
+          status: {
+            state: 'GenericError',
+            errors: {
+              code: 'InsufficientBalance',
+              message: `Card has $${(cardBalanceInCents / 100).toFixed(2)}, but you requested $${userAmount.toFixed(2)}`,
+            },
+          },
+        };
+      }
+    }
+
     return result;
   }
 
@@ -460,15 +494,12 @@ export class FormComponent extends DefaultComponent {
     const cardNumber = this.cardNumberInput?.value || '';
     const pin = this.pinInput?.value || '';
 
-    // Use appliedAmount if set (from handleApply), otherwise use opts.amount
-    const amount = this.appliedAmount > 0
-      ? { centAmount: Math.round(this.appliedAmount * 100), currencyCode: 'USD' }
-      : opts?.amount;
+    // Use SDK's amount (which comes from balance() that already considered user's input)
+    const amount = opts?.amount;
 
     console.log('[GiftCard] Card number:', cardNumber ? '****' + cardNumber.slice(-4) : 'empty');
     console.log('[GiftCard] PIN:', pin ? '****' : 'empty');
-    console.log('[GiftCard] Amount from appliedAmount:', this.appliedAmount);
-    console.log('[GiftCard] Amount to use:', amount);
+    console.log('[GiftCard] Amount from SDK:', amount);
 
     if (!amount) {
       console.error('[GiftCard] Amount is required!');
