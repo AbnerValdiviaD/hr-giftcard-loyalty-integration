@@ -19,7 +19,7 @@ import {
 } from './types/operation.type';
 import { BalanceResponseSchemaDTO, RedeemResponseDTO, RedeemRequestDTO } from '../dtos/giftcard.dto';
 import { PaymentModificationStatus } from '../dtos/operations/payment-intents.dto';
-import { getCartIdFromContext } from '../libs/fastify/context/context';
+import { getCartIdFromContext, getPaymentInterfaceFromContext } from '../libs/fastify/context/context';
 import packageJSON from '../../package.json';
 import { log } from '../libs/logger';
 import { EncryptionService } from '../libs/crypto';
@@ -585,7 +585,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         currencyCode: request.amount.currencyCode,
       },
       paymentMethodInfo: {
-        paymentInterface: 'harryrosen-giftcard',
+        paymentInterface: getPaymentInterfaceFromContext() || 'harryrosen-giftcard',
         method: 'giftcard',
       },
       custom: {
