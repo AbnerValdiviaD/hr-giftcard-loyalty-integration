@@ -18,11 +18,14 @@ export class RedemptionConverter {
     createPaymentResult: Payment;
   }): RedeemResponseDTO {
     const redemptionResultObj = opts?.redemptionResult;
-    const isSuccess = this.convertMockClientResultCode(redemptionResultObj.resultCode || '') === 'Success';
+    const result = this.convertMockClientResultCode(redemptionResultObj.resultCode || '') === 'Success'
+      ? 'Success'
+      : 'Failure';
 
     return {
-      isSuccess,
+      result,
       paymentReference: opts?.createPaymentResult.id || '',
+      redemptionId: redemptionResultObj.redemptionReference || opts?.createPaymentResult.interfaceId || '',
     };
   }
 }

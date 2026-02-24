@@ -19,7 +19,7 @@ import {
 } from './types/operation.type';
 import { BalanceResponseSchemaDTO, RedeemResponseDTO, RedeemRequestDTO } from '../dtos/giftcard.dto';
 import { PaymentModificationStatus } from '../dtos/operations/payment-intents.dto';
-import { getCartIdFromContext, getPaymentInterfaceFromContext } from '../libs/fastify/context/context';
+import { getCartIdFromContext, getPaymentInterfaceFromContext, getCtSessionIdFromContext } from '../libs/fastify/context/context';
 import packageJSON from '../../package.json';
 import { log } from '../libs/logger';
 import { EncryptionService } from '../libs/crypto';
@@ -62,6 +62,68 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       transactionBaseUrl: config.harryRosenTransactionUrl,
       currency: config.mockConnectorCurrency,
     });
+  }
+
+  /**
+   * Get order number from session data
+   * The session may contain a pre-generated order number
+   */
+  private async getOrderNumberFromSession(): Promise<string | undefined> {
+    try {
+      const sessionId = getCtSessionIdFromContext();
+      if (!sessionId) {
+        log.debug('No session ID available in context');
+        return undefined;
+      }
+
+      const config = getConfig();
+
+      // Fetch session using direct HTTP call since SDK doesn't expose session API
+      const tokenResponse = await fetch(`${config.authUrl}/oauth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          scope: `view_sessions:${config.projectKey}`,
+        }),
+      });
+
+      const { access_token } = await tokenResponse.json();
+
+      const sessionResponse = await fetch(
+        `${config.sessionUrl}/${config.projectKey}/sessions/${sessionId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+          },
+        }
+      );
+
+      if (!sessionResponse.ok) {
+        log.debug('Session not found or not accessible', { sessionId });
+        return undefined;
+      }
+
+      const session = await sessionResponse.json();
+      console.log("Session: ", JSON.stringify(session))
+
+      // Session may have orderNumber in metadata
+      const orderNumber = session.metadata?.orderNumber || session.metadata?.order_number;
+
+      if (orderNumber) {
+        log.info('Retrieved order number from session', { orderNumber });
+        return orderNumber as string;
+      }
+
+      log.debug('No order number found in session metadata');
+      return undefined;
+    } catch (error: any) {
+      log.debug('Failed to retrieve order number from session', { error: error.message });
+      return undefined;
+    }
   }
 
   /**
@@ -543,35 +605,58 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         ],
       });
 
-      // Generate interfaceId for this updated authorization
-      const authorizationId = `harryrosen-auth-${existingPayment.id}-${Date.now()}`;
+      // Redeem the ADDITIONAL amount from Harry Rosen
+      const additionalAmountInDollars = request.amount.centAmount / 100;
+      const giftCardPin = this.encryptionService.decrypt(existingPayment.custom?.fields?.giftCardPin);
 
-      // Update Authorization transaction with new amount
+      // Get order number from session (or fallback to cart ID)
+      const orderNumber = await this.getOrderNumberFromSession();
+      const orderIdentifier = orderNumber || cart.id;
+
+      log.info('Redeeming additional amount from Harry Rosen', {
+        paymentId: existingPayment.id,
+        additionalAmount: additionalAmountInDollars,
+        orderIdentifier,
+      });
+
+      const redeemResponse = await this.harryRosenClient.redeem({
+        pan: request.code,
+        pin: giftCardPin,
+        amount: additionalAmountInDollars,
+        reference_id: `${existingPayment.id}-add-${Date.now()}`,
+        reason: 'purchase',
+        orderId: orderIdentifier,
+      });
+
+      log.info('Additional amount redeemed successfully', {
+        paymentId: existingPayment.id,
+        transactionId: redeemResponse.reference_id,
+      });
+
+      // Add Charge transaction for the additional amount
       await this.ctPaymentService.updatePayment({
         id: updatedPayment.id,
+        pspReference: redeemResponse.reference_id,
         transaction: {
-          type: 'Authorization',
+          type: 'Charge',
           amount: {
-            centAmount: newAmount,
+            centAmount: request.amount.centAmount,
             currencyCode: existingPayment.amountPlanned.currencyCode,
           },
+          interactionId: redeemResponse.reference_id,
           state: 'Success',
         },
       });
 
-      //HarryRosen
-      //Response válido cambio a Charge
-
-      log.info('Payment amount updated successfully', {
+      log.info('Payment charged successfully', {
         paymentId: existingPayment.id,
-        newAmount: newAmount,
-        interfaceId: authorizationId,
+        redemptionId: redeemResponse.reference_id,
       });
 
       return {
         result: 'Success',
         paymentReference: existingPayment.id,
-        redemptionId: authorizationId,
+        redemptionId: redeemResponse.reference_id,
       };
     }
 
@@ -616,61 +701,81 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       paymentId: payment.id,
     });
 
-    // Generate interfaceId for this authorization
-    const authorizationId = `harryrosen-auth-${payment.id}-${Date.now()}`;
+    // NOW: Actually redeem from Harry Rosen API
+    const amountInDollars = request.amount.centAmount / 100;
 
-    // Add Authorization transaction to signal payment is ready
+    // Get order number from session (or fallback to cart ID)
+    const orderNumber = await this.getOrderNumberFromSession();
+    const orderIdentifier = orderNumber || cart.id;
+
+    log.info('Redeeming from Harry Rosen API', {
+      paymentId: payment.id,
+      amount: amountInDollars,
+      orderIdentifier,
+    });
+
+    const redeemResponse = await this.harryRosenClient.redeem({
+      pan: request.code,
+      pin: request.securityCode!,
+      amount: amountInDollars,
+      reference_id: payment.id,
+      reason: 'purchase',
+      orderId: orderIdentifier,
+    });
+
+    log.info('Harry Rosen redemption successful', {
+      paymentId: payment.id,
+      transactionId: redeemResponse.reference_id,
+    });
+
+    // Add Charge transaction with actual redemption reference
     await this.ctPaymentService.updatePayment({
       id: payment.id,
+      pspReference: redeemResponse.reference_id,
       transaction: {
-        type: 'Authorization',
+        type: 'Charge',
         amount: {
           centAmount: request.amount.centAmount,
           currencyCode: request.amount.currencyCode,
         },
+        interactionId: redeemResponse.reference_id,
         state: 'Success',
       },
     });
 
-    log.info('Payment authorized and added to cart', {
+    log.info('Payment charged and added to cart', {
       paymentId: payment.id,
-      interfaceId: authorizationId,
+      redemptionId: redeemResponse.reference_id,
     });
 
     return {
       result: 'Success',
       paymentReference: payment.id,
-      redemptionId: authorizationId,
+      redemptionId: redeemResponse.reference_id,
     };
   }
 
   /**
-   * Redeem gift card - AUTHORIZATION ONLY (Two-Step Flow)
+   * Redeem gift card - IMMEDIATE REDEMPTION
    *
-   * This method creates a pending payment in commercetools and adds it to the cart.
-   * If the same gift card is already applied (without transactions), it updates the existing payment.
-   * The actual redemption from Harry Rosen API happens later during capturePayment().
+   * This method immediately redeems the gift card from Harry Rosen API and creates
+   * a charged payment in commercetools.
    *
    * Flow:
-   * 1. User clicks "Apply" → This method (redeem)
+   * 1. User clicks SDK "Complete Purchase" button → This method (redeem)
    *    - Validates card number and PIN
-   *    - Checks if card already has a pending payment
-   *    - Checks balance with Harry Rosen API (considering already applied amount)
-   *    - Updates existing payment OR creates new payment in commercetools (NO transaction yet)
-   *    - Stores card details in payment custom fields
-   *    - Adds payment to cart (if new)
+   *    - Checks balance with Harry Rosen API
+   *    - Creates/updates payment in commercetools
+   *    - Calls Harry Rosen API to redeem immediately
+   *    - Adds Charge transaction with actual redemption reference
+   *    - Returns success with payment reference and redemption ID
    *
-   * 2. Order is created → capturePayment() is called automatically
-   *    - Retrieves stored card details
-   *    - Calls Harry Rosen API to actually redeem (once per unique card)
-   *    - Adds transaction to payment
-   *
-   * This prevents charging the customer if they abandon the cart and consolidates
-   * multiple applications of the same gift card into a single payment.
+   * Note: Gift card is charged immediately when SDK button is clicked.
+   * Multiple applications of the same card create multiple redemption API calls.
    */
   async redeem(request: RedeemRequestDTO, fastifyRequest?: any): Promise<RedeemResponseDTO> {
     try {
-      log.info('Authorizing gift card payment', {
+      log.info('Redeeming gift card payment', {
         code: '****' + request.code.slice(-4),
         amount: request.amount,
       });
