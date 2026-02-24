@@ -400,14 +400,14 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
     const panValidation = this.validatePAN(request.code);
     if (!panValidation.valid) {
       return {
-        isSuccess: false,
+        result: 'Failure',
         errorMessage: panValidation.error || 'Invalid gift card number',
       };
     }
 
     if (!request.securityCode) {
       return {
-        isSuccess: false,
+        result: 'Failure',
         errorMessage: 'PIN is required',
       };
     }
@@ -415,7 +415,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
     const pinValidation = this.validatePIN(request.securityCode);
     if (!pinValidation.valid) {
       return {
-        isSuccess: false,
+        result: 'Failure',
         errorMessage: pinValidation.error || 'Invalid PIN',
       };
     }
@@ -436,7 +436,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
     if (balanceResult.status.state !== 'Valid') {
       return {
-        isSuccess: false,
+        result: 'Failure',
         errorMessage: balanceResult.status.errors?.[0]?.message || 'Invalid gift card',
       };
     }
@@ -449,7 +449,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       const totalInDollars = newTotal / 100;
 
       return {
-        isSuccess: false,
+        result: 'Failure',
         errorMessage: `Insufficient balance. Card has $${balanceInDollars.toFixed(2)}, but trying to use $${totalInDollars.toFixed(2)} total.`,
       };
     }
@@ -559,14 +559,19 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         },
       });
 
+      //HarryRosen
+      //Response válido cambio a Charge
+
       log.info('Payment amount updated successfully', {
         paymentId: existingPayment.id,
-        newAmount: newAmount
+        newAmount: newAmount,
+        interfaceId: authorizationId,
       });
 
       return {
-        isSuccess: true,
+        result: 'Success',
         paymentReference: existingPayment.id,
+        redemptionId: authorizationId,
       };
     }
 
@@ -629,12 +634,13 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
     log.info('Payment authorized and added to cart', {
       paymentId: payment.id,
-      note: 'Actual redemption will happen during order creation',
+      interfaceId: authorizationId,
     });
 
     return {
-      isSuccess: true,
+      result: 'Success',
       paymentReference: payment.id,
+      redemptionId: authorizationId,
     };
   }
 
@@ -698,7 +704,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
     } catch (error: any) {
       log.error('Error authorizing gift card payment', { error: error.message });
       return {
-        isSuccess: false,
+        result: 'Failure',
         errorMessage: error.message || 'Authorization failed',
       };
     }

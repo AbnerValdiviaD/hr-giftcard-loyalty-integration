@@ -544,8 +544,8 @@ export class FormComponent extends DefaultComponent {
 
     console.log('[GiftCard] Redeem result:', result);
 
-    if (!result.isSuccess) {
-      console.error('[GiftCard] Redeem failed (isSuccess=false):', result.errorMessage);
+    if (result.result !== 'Success') {
+      console.error('[GiftCard] Redeem failed:', result.errorMessage);
       throw new Error(result.errorMessage || 'Redemption failed');
     }
 

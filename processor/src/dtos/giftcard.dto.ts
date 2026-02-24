@@ -23,8 +23,9 @@ export const RedeemRequestSchema = Type.Object({
 });
 
 export const RedeemResponseSchema = Type.Object({
-  isSuccess: Type.Boolean(),
+  result: Type.String(), // "Success" or "Failure"
   paymentReference: Type.Optional(Type.String()),
+  redemptionId: Type.Optional(Type.String()),
   errorMessage: Type.Optional(Type.String()),
 });
 

@@ -88,7 +88,7 @@ export const mockGiftCardServiceRoutes = async (
       const res = await opts.giftCardService.redeem(request.body, request);
 
       // Return appropriate HTTP status based on redeem result
-      if (res.isSuccess) {
+      if (res.result === 'Success') {
         return reply.status(200).send(res);
       } else {
         // Return 400 for failed redemptions
