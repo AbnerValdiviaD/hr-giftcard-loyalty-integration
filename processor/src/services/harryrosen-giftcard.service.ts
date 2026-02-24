@@ -549,22 +549,19 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       // Update Authorization transaction with new amount
       await this.ctPaymentService.updatePayment({
         id: updatedPayment.id,
-        pspReference: authorizationId,
         transaction: {
-          type: 'Charge',
+          type: 'Authorization',
           amount: {
             centAmount: newAmount,
             currencyCode: existingPayment.amountPlanned.currencyCode,
           },
-          interactionId: authorizationId,
           state: 'Success',
         },
       });
 
       log.info('Payment amount updated successfully', {
         paymentId: existingPayment.id,
-        newAmount: newAmount,
-        interfaceId: authorizationId,
+        newAmount: newAmount
       });
 
       return {
@@ -620,21 +617,18 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
     // Add Authorization transaction to signal payment is ready
     await this.ctPaymentService.updatePayment({
       id: payment.id,
-      pspReference: authorizationId,
       transaction: {
-        type: 'Charge',
+        type: 'Authorization',
         amount: {
           centAmount: request.amount.centAmount,
           currencyCode: request.amount.currencyCode,
         },
-        interactionId: authorizationId,
         state: 'Success',
       },
     });
 
     log.info('Payment authorized and added to cart', {
       paymentId: payment.id,
-      interfaceId: authorizationId,
       note: 'Actual redemption will happen during order creation',
     });
 
