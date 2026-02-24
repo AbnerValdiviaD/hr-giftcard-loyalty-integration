@@ -551,7 +551,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         id: updatedPayment.id,
         pspReference: authorizationId,
         transaction: {
-          type: 'Authorization',
+          type: 'Charge',
           amount: {
             centAmount: newAmount,
             currencyCode: existingPayment.amountPlanned.currencyCode,
@@ -622,7 +622,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       id: payment.id,
       pspReference: authorizationId,
       transaction: {
-        type: 'Authorization',
+        type: 'Charge',
         amount: {
           centAmount: request.amount.centAmount,
           currencyCode: request.amount.currencyCode,
