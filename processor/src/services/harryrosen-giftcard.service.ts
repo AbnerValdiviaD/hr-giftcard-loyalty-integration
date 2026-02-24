@@ -556,6 +556,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
             centAmount: newAmount,
             currencyCode: existingPayment.amountPlanned.currencyCode,
           },
+          interactionId: authorizationId,
           state: 'Success',
         },
       });
@@ -626,6 +627,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
           centAmount: request.amount.centAmount,
           currencyCode: request.amount.currencyCode,
         },
+        interactionId: authorizationId,
         state: 'Success',
       },
     });
