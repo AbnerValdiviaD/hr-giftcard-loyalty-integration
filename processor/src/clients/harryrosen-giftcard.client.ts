@@ -23,7 +23,11 @@ export interface HarryRosenRedeemRequest {
 }
 
 export interface HarryRosenRedeemResponse {
-  reference_id: string;
+  referenceId: string; // Harry Rosen API returns camelCase
+  amount: number;
+  currency: string;
+  orderId: string;
+  cardNumber: string;
 }
 
 export interface HarryRosenRefundRequest {
@@ -37,7 +41,11 @@ export interface HarryRosenRefundRequest {
 }
 
 export interface HarryRosenRefundResponse {
-  reference_id: string;
+  referenceId: string; // Harry Rosen API returns camelCase
+  amount: number;
+  currency: string;
+  orderId: string;
+  cardNumber: string;
 }
 
 /**
@@ -255,6 +263,16 @@ export class HarryRosenGiftCardClient {
         reference_id: request.reference_id,
         reason: request.reason || 'purchase',
         orderId: request.orderId,
+      });
+
+      log.info('Harry Rosen capture response received', {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data,
+        dataType: typeof response.data,
+        referenceId: response.data?.referenceId,
+        referenceId_type: typeof response.data?.referenceId,
+        allKeys: Object.keys(response.data || {}),
       });
 
       return response.data;

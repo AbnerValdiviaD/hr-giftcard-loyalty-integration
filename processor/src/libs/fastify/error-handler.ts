@@ -12,7 +12,7 @@ import {
   MultiErrorx,
 } from '@commercetools/connect-payments-sdk';
 import { TAuthErrorResponse, TErrorObject, TErrorResponse, TMockCustomErrorResponse } from './dtos/error.dto';
-import { MockApiError, MockCustomError } from '../../errors/giftcard-api.error';
+import { MockApiError, MockCustomError, HarryRosenApiError } from '../../errors/giftcard-api.error';
 
 function isFastifyValidationError(error: Error): error is FastifyError {
   return (error as unknown as FastifyError).validation != undefined;
@@ -23,7 +23,7 @@ export const errorHandler = (error: Error, req: FastifyRequest, reply: FastifyRe
     return handleErrors(transformValidationErrors(error.validation, req), reply);
   } else if (error instanceof ErrorAuthErrorResponse) {
     return handleAuthError(error, reply);
-  } else if (error instanceof MockCustomError || error instanceof MockApiError) {
+  } else if (error instanceof MockCustomError || error instanceof MockApiError || error instanceof HarryRosenApiError) {
     return handleMockCustomError(error, reply);
   } else if (error instanceof Errorx) {
     return handleErrors([error], reply);

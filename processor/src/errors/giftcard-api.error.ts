@@ -31,3 +31,19 @@ export class MockCustomError extends Errorx {
     });
   }
 }
+
+/**
+ * Harry Rosen API Error
+ * Used for all Harry Rosen gift card API errors (balance, redeem, refund)
+ */
+export class HarryRosenApiError extends Errorx {
+  constructor(errorData: MockApiErrorData, additionalOpts?: ErrorxAdditionalOpts) {
+    super({
+      code: errorData.key,
+      httpErrorStatus: errorData.code,
+      message: errorData.message,
+      skipLog: true,
+      ...additionalOpts,
+    });
+  }
+}

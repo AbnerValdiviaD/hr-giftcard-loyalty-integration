@@ -23,6 +23,7 @@ import { getCartIdFromContext, getPaymentInterfaceFromContext, getCtSessionIdFro
 import packageJSON from '../../package.json';
 import { log } from '../libs/logger';
 import { EncryptionService } from '../libs/crypto';
+import { HarryRosenApiError } from '../errors/giftcard-api.error';
 
 export type HarryRosenGiftCardServiceOptions = {
   ctCartService: CommercetoolsCartService;
@@ -296,88 +297,79 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
   /**
    * Helper: Validate card inputs for balance check
    */
-  private validateBalanceInputs(code: string, securityCode?: string): BalanceResponseSchemaDTO | null {
+  private validateBalanceInputs(code: string, securityCode?: string): void {
     if (!securityCode) {
-      return {
-        status: {
-          state: 'GenericError',
-          errors: [{ code: 'MissingSecurityCode', message: 'Security code (PIN) is required' }],
-        },
-      };
+      throw new HarryRosenApiError({
+        code: 400,
+        key: 'MissingSecurityCode',
+        message: 'Security code (PIN) is required',
+      });
     }
 
     const panValidation = this.validatePAN(code);
     if (!panValidation.valid) {
-      return {
-        status: {
-          state: 'GenericError',
-          errors: [{ code: 'InvalidCardNumber', message: panValidation.error || 'Invalid gift card number' }],
-        },
-      };
+      throw new HarryRosenApiError({
+        code: 400,
+        key: 'InvalidCardNumber',
+        message: panValidation.error || 'Invalid gift card number',
+      });
     }
 
     const pinValidation = this.validatePIN(securityCode);
     if (!pinValidation.valid) {
-      return {
-        status: {
-          state: 'GenericError',
-          errors: [{ code: 'InvalidPIN', message: pinValidation.error || 'Invalid PIN' }],
-        },
-      };
+      throw new HarryRosenApiError({
+        code: 400,
+        key: 'InvalidPIN',
+        message: pinValidation.error || 'Invalid PIN',
+      });
     }
-
-    return null;
   }
 
   /**
    * Helper: Handle balance check errors
    */
-  private handleBalanceError(error: any): BalanceResponseSchemaDTO {
+  private handleBalanceError(error: any): never {
     log.error('Error checking balance', { error: error.message });
 
     if (error.response?.status === 401) {
-      return {
-        status: {
-          state: 'GenericError',
-          errors: [{ code: 'Unauthorized', message: 'Invalid API credentials' }],
-        },
-      };
+      throw new HarryRosenApiError({
+        code: 400,
+        key: 'Unauthorized',
+        message: 'Invalid API credentials',
+      });
     }
 
     if (error.response?.status === 404) {
-      return {
-        status: {
-          state: 'NotFound',
-          errors: [{ code: 'NotFound', message: 'Gift card not found' }],
-        },
-      };
+      throw new HarryRosenApiError({
+        code: 404,
+        key: 'NotFound',
+        message: 'Gift card not found',
+      });
     }
 
     const responseData = error.response?.data;
     if (typeof responseData === 'string' && responseData.toLowerCase().includes('invalid')) {
-      return {
-        status: {
-          state: 'NotFound',
-          errors: [{ code: 'InvalidCardOrPin', message: 'Invalid gift card number or PIN' }],
-        },
-      };
+      throw new HarryRosenApiError({
+        code: 400,
+        key: 'InvalidCardOrPin',
+        message: 'Invalid gift card number or PIN',
+      });
     }
 
     if (error.message?.includes('expired')) {
-      return {
-        status: {
-          state: 'Expired',
-          errors: [{ code: 'Expired', message: 'Gift card has expired' }],
-        },
-      };
+      throw new HarryRosenApiError({
+        code: 400,
+        key: 'Expired',
+        message: 'Gift card has expired',
+      });
     }
 
-    return {
-      status: {
-        state: 'GenericError',
-        errors: [{ code: 'GenericError', message: 'Failed to check gift card balance' }],
-      },
-    };
+    // Fallback for any other error
+    throw new HarryRosenApiError({
+      code: 400,
+      key: 'GenericError',
+      message: error.message || 'Failed to check gift card balance',
+    });
   }
 
   /**
@@ -387,10 +379,8 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
     try {
       log.info('Checking balance for gift card', { code: '****' + code.slice(-4) });
 
-      const validationError = this.validateBalanceInputs(code, securityCode);
-      if (validationError) {
-        return validationError;
-      }
+      // Validate inputs (throws HarryRosenApiError if invalid)
+      this.validateBalanceInputs(code, securityCode);
 
       const response = await this.harryRosenClient.balance({
         pan: code,
@@ -407,17 +397,11 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
       // Check if balance is zero
       if (balanceInCents === 0) {
-        return {
-          status: {
-            state: 'ZeroBalance',
-            errors: [
-              {
-                code: 'ZeroBalance',
-                message: 'Gift card has zero balance',
-              },
-            ],
-          },
-        };
+        throw new HarryRosenApiError({
+          code: 400,
+          key: 'ZeroBalance',
+          message: 'Gift card has zero balance',
+        });
       }
 
       // Harry Rosen gift cards are always in CAD
@@ -427,17 +411,11 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       // Check if the gift card currency matches the deployment's configured currency
       if (configuredCurrency && configuredCurrency.toUpperCase() !== giftCardCurrency) {
         console.log(`Currency mismatch: Gift card is ${giftCardCurrency}, but deployment is configured for ${configuredCurrency}`);
-        return {
-          status: {
-            state: 'CurrencyNotMatch',
-            errors: [
-              {
-                code: 'CurrencyNotMatch',
-                message: `Gift card currency (${giftCardCurrency}) does not match configured currency (${configuredCurrency})`,
-              },
-            ],
-          },
-        };
+        throw new HarryRosenApiError({
+          code: 400,
+          key: 'CurrencyNotMatch',
+          message: `Gift card currency (${giftCardCurrency}) does not match configured currency (${configuredCurrency})`,
+        });
       }
 
       console.log(`Currency check passed: ${giftCardCurrency} matches configured currency`);
@@ -451,7 +429,12 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
         },
       };
     } catch (error: any) {
-      return this.handleBalanceError(error);
+      // If it's already a HarryRosenApiError, just re-throw it
+      if (error instanceof HarryRosenApiError) {
+        throw error;
+      }
+      // Otherwise, handle and throw a formatted error
+      this.handleBalanceError(error);
     }
   }
 
@@ -630,33 +613,33 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
       log.info('Additional amount redeemed successfully', {
         paymentId: existingPayment.id,
-        transactionId: redeemResponse.reference_id,
+        transactionId: redeemResponse.referenceId,
       });
 
       // Add Charge transaction for the additional amount
       await this.ctPaymentService.updatePayment({
         id: updatedPayment.id,
-        pspReference: redeemResponse.reference_id,
+        pspReference: redeemResponse.referenceId,
         transaction: {
           type: 'Charge',
           amount: {
             centAmount: request.amount.centAmount,
             currencyCode: existingPayment.amountPlanned.currencyCode,
           },
-          interactionId: redeemResponse.reference_id,
+          interactionId: redeemResponse.referenceId,
           state: 'Success',
         },
       });
 
       log.info('Payment charged successfully', {
         paymentId: existingPayment.id,
-        redemptionId: redeemResponse.reference_id,
+        redemptionId: redeemResponse.referenceId,
       });
 
       return {
         result: 'Success',
         paymentReference: existingPayment.id,
-        redemptionId: redeemResponse.reference_id,
+        redemptionId: redeemResponse.referenceId,
       };
     }
 
@@ -725,33 +708,33 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
     log.info('Harry Rosen redemption successful', {
       paymentId: payment.id,
-      transactionId: redeemResponse.reference_id,
+      transactionId: redeemResponse.referenceId,
     });
 
     // Add Charge transaction with actual redemption reference
     await this.ctPaymentService.updatePayment({
       id: payment.id,
-      pspReference: redeemResponse.reference_id,
+      pspReference: redeemResponse.referenceId,
       transaction: {
         type: 'Charge',
         amount: {
           centAmount: request.amount.centAmount,
           currencyCode: request.amount.currencyCode,
         },
-        interactionId: redeemResponse.reference_id,
+        interactionId: redeemResponse.referenceId,
         state: 'Success',
       },
     });
 
     log.info('Payment charged and added to cart', {
       paymentId: payment.id,
-      redemptionId: redeemResponse.reference_id,
+      redemptionId: redeemResponse.referenceId,
     });
 
     return {
       result: 'Success',
       paymentReference: payment.id,
-      redemptionId: redeemResponse.reference_id,
+      redemptionId: redeemResponse.referenceId,
     };
   }
 
@@ -917,32 +900,32 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
       log.info('Harry Rosen redemption successful', {
         code: '****' + giftCardCode.slice(-4),
-        transactionId: response.reference_id,
+        transactionId: response.referenceId,
       });
 
       // Update payment with transaction
       await this.ctPaymentService.updatePayment({
         id: payment.id,
-        pspReference: response.reference_id,
+        pspReference: response.referenceId,
         transaction: {
           type: 'Charge',
           amount: {
             centAmount: request.amount.centAmount,
             currencyCode: request.amount.currencyCode,
           },
-          interactionId: response.reference_id,
+          interactionId: response.referenceId,
           state: 'Success',
         },
       });
 
       log.info('Payment captured successfully', {
         paymentId: payment.id,
-        pspReference: response.reference_id,
+        pspReference: response.referenceId,
       });
 
       return {
         outcome: PaymentModificationStatus.APPROVED,
-        pspReference: response.reference_id,
+        pspReference: response.referenceId,
       };
     } catch (error: any) {
       log.error('Error capturing gift card payment', {
@@ -1067,12 +1050,12 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
 
       log.info('Refund successful', {
         paymentId: request.payment.id,
-        refundId: response.reference_id,
+        refundId: response.referenceId,
       });
 
       return {
         outcome: PaymentModificationStatus.APPROVED,
-        pspReference: response.reference_id,
+        pspReference: response.referenceId,
       };
     } catch (error: any) {
       log.error('Error refunding payment', { error: error.message });
@@ -1136,7 +1119,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       });
 
       log.info('Test redeem successful', {
-        referenceId: result.reference_id,
+        referenceId: result.referenceId,
       });
 
       return result;
