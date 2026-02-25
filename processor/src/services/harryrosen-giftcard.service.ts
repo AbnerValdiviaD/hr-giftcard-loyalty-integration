@@ -111,7 +111,7 @@ export class HarryRosenGiftCardService extends AbstractGiftCardService {
       console.log("Session: ", JSON.stringify(session))
 
       // Session may have orderNumber in metadata
-      const orderNumber = session.metadata?.orderNumber || session.metadata?.order_number;
+      const orderNumber = session.metadata?.futureOrderNumber
 
       if (orderNumber) {
         log.info('Retrieved order number from session', { orderNumber });
