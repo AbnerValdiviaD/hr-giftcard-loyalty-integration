@@ -4,7 +4,6 @@ import {
   BaseOptions,
   GiftCardComponent,
   GiftCardOptions,
-  PaymentResult,
 } from '../providers/definitions';
 import { BaseComponentBuilder, DefaultComponent } from './definitions';
 import { FormComponent } from './form';

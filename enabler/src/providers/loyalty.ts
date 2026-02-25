@@ -31,14 +31,12 @@ export class LoyaltyEnabler implements GiftCardEnabler {
     };
   };
 
-  async createGiftCardBuilder(type: string = 'loyalty'): Promise<GiftCardBuilder | never> {
+  async createGiftCardBuilder(): Promise<GiftCardBuilder | never> {
     const setupData = await this.setupData;
     if (!setupData) {
       throw new Error('LoyaltyEnabler not initialized');
     }
 
-    // LoyaltyEnabler only supports loyalty type
-    // Type parameter is ignored for backward compatibility
     return new LoyaltyFormBuilder(setupData.baseOptions);
   }
 }
